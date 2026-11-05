@@ -52,7 +52,7 @@ Les données du CISSP ne sont pas touchées : toutes les tables du QCM Splunk so
 1. Dans le projet Supabase du CISSP, **SQL Editor → New query** : collez tout `supabase/schema.sql`, puis **Run**.
 2. Nouvelle requête **vide** : collez `private/seed_questions.sql`, puis **Run**. La dernière ligne doit afficher `221`.
 3. Nouvelle requête **vide** : collez `private/seed_practice.sql`, puis **Run**. La dernière ligne doit afficher `120`.
-4. **Authentication → URL Configuration** : laissez *Site URL* sur l'adresse du CISSP, et **ajoutez** `https://hamzabenazouz.github.io/splunk/` dans *Redirect URLs*.
+4. **Authentication → URL Configuration** : laissez *Site URL* sur l'adresse du CISSP, et **ajoutez** `https://hamzabenazouz.github.io/splunk-qcm/` dans *Redirect URLs*.
 
 Rien d'autre à faire : votre compte CISSP sert aussi pour le site Splunk, et les inscriptions restent fermées. Comme les deux sites sont sur `hamzabenazouz.github.io` et la même base, la connexion est partagée dans un même navigateur : se connecter ou se déconnecter sur l'un le fait aussi sur l'autre. Les progressions, sauvegardes et questions marquées restent séparées.
 
@@ -60,7 +60,7 @@ Ne mettez **jamais** la clé secrète (`sb_secret_…`) dans `js/config.js`.
 
 ## 3. Publier sur GitHub Pages
 
-Même procédure que pour le site CISSP (voir son README, section 3), avec un **nouveau dépôt public**, par exemple `splunk` :
+Même procédure que pour le site CISSP (voir son README, section 3), avec un **nouveau dépôt public** `splunk-qcm` :
 
 ```bash
 cd splunk-qcm
@@ -69,13 +69,13 @@ git add .
 git status                       # private/ ne doit PAS apparaître
 git commit -m "Site QCM Splunk"
 git branch -M main
-git remote add origin https://github.com/HamzaBENAZOUZ/splunk.git
+git remote add origin https://github.com/HamzaBENAZOUZ/splunk-qcm.git
 git push -u origin main
 ```
 
 Vérifiez avant le push que `js/config.js` contient bien l'adresse `dywhikydfvpnxytawoty` et la clé `sb_publishable_…`.
 
-Puis **Settings → Pages → Deploy from a branch → main / (root)**. Le site sera sur `https://hamzabenazouz.github.io/splunk/`. L'application Android attend cette adresse : si vous choisissez un autre nom de dépôt, dites-le pour que l'APK soit reconstruite.
+Puis **Settings → Pages → Deploy from a branch → main / (root)**. Le site sera sur `https://hamzabenazouz.github.io/splunk-qcm/`. L'application Android attend cette adresse : si vous choisissez un autre nom de dépôt, dites-le pour que l'APK soit reconstruite.
 
 Avec l'upload web de GitHub (*Add file → Upload files*), déposez le **contenu** du dossier (index.html, css/, js/…), sans `private/`, et vérifiez qu'aucun dossier temporaire (`7zE…`) n'est créé.
 
