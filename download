@@ -1,0 +1,6 @@
+# Banque de questions : chargée dans Supabase, pas publiée sur GitHub
+private/
+
+.DS_Store
+Thumbs.db
+__pycache__/
