@@ -25,13 +25,10 @@ L'examen blanc tire des questions au hasard dans l'onglet actif, avec 1 minute p
 splunk-qcm/
 ├── index.html, css/, js/, assets/, sw.js   le site (mêmes fichiers que le site CISSP, adaptés)
 ├── js/config.js           ← vos clés Supabase (à remplir)
-├── supabase/schema.sql    tables + sécurité (RLS), toutes les migrations CISSP v2 à v6 incluses
-├── tools/json_to_sql.py   régénère les fichiers d'import SQL
+├── tools/json_to_sql.py   génère les fichiers d'import SQL (dans private/, jamais publiés)
 └── private/               non publié (ignoré par .gitignore)
     ├── questions.json         SPLK-1001 (221 questions)
-    ├── practice.json          SPLK-1002 (120 questions)
-    ├── seed_questions.sql     import SPLK-1001
-    └── seed_practice.sql      import SPLK-1002
+    └── practice.json          SPLK-1002 (120 questions)
 ```
 
 ## 1. Tester en local
@@ -47,10 +44,9 @@ python3 -m http.server 8000      # puis ouvrir http://localhost:8000
 
 Depuis la v1.5 (QCM + onglet Suivi dans une seule appli), le site utilise le projet Supabase **suivi-splunk** (`https://jmmwzrwdavufrzwaigrc.supabase.co`), le même que l'ancien site de suivi : un seul compte pour le QCM et le planning. `js/config.js` contient déjà cette adresse et sa clé publishable. Les tables sont préfixées `splunk_` (`splunk_chapters`, `splunk_questions`, `splunk_attempts`, `splunk_answers`, `splunk_saved_quizzes`, `splunk_flags`, `splunk_suivi`).
 
-1. Dans le projet **suivi-splunk**, **SQL Editor → New query** : collez tout `supabase/schema.sql`, puis **Run**.
-2. Nouvelle requête **vide** : collez `private/seed_questions.sql`, puis **Run**. La dernière ligne doit afficher `221`.
-3. Nouvelle requête **vide** : collez `private/seed_practice.sql`, puis **Run**. La dernière ligne doit afficher `120`.
-4. **Authentication → URL Configuration** : **ajoutez** `https://hamzabenazouz.github.io/splunk-qcm/` dans *Redirect URLs*.
+Le schéma (tables + RLS) et les 341 questions sont déjà en place dans ce projet. Les fichiers SQL ne sont **jamais** publiés dans ce dépôt (`*.sql` est ignoré) : ils restent hors de GitHub.
+
+1. **Authentication → URL Configuration** : **ajoutez** `https://hamzabenazouz.github.io/splunk-qcm/` dans *Redirect URLs*.
 
 Les anciennes tables `splunk_*` du projet CISSP ne servent plus ; elles peuvent rester ou être supprimées.
 
@@ -85,4 +81,4 @@ Avec l'upload web de GitHub (*Add file → Upload files*), déposez le **contenu
 python3 tools/json_to_sql.py
 ```
 
-et ré-exécutez le fichier `seed_*.sql` correspondant dans Supabase. L'import est idempotent : il met à jour les questions sans créer de doublons, et votre progression est conservée.
+et exécutez le fichier d'import généré dans `private/` (jamais publié) dans le SQL Editor de Supabase. L'import est idempotent : il met à jour les questions sans créer de doublons, et votre progression est conservée.
