@@ -1,3 +1,6 @@
+# Fichiers SQL : jamais publiés
+*.sql
+
 # Banque de questions : chargée dans Supabase, pas publiée sur GitHub
 private/
 
