@@ -10,8 +10,8 @@
 //  alors private/questions.json et garde la progression dans le navigateur.
 // ============================================================
 window.SPLUNK_CONFIG = {
-  SUPABASE_URL: "https://dywhikydfvpnxytawoty.supabase.co",
-  SUPABASE_ANON_KEY: "sb_publishable_7ndfC8AsN4nVVEnWiKv5rQ_cis5sS8I",
+  SUPABASE_URL: "https://jmmwzrwdavufrzwaigrc.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_xsxn3KTwZw2IN82lyuJQ_Q_BKHrZdLD",
   PASS_MARK: 70,            // % pour considérer un quiz "réussi"
   LOCAL_DATA: "private/questions.json"
 };
