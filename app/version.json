@@ -1,0 +1,9 @@
+{
+  "versionCode": 5,
+  "versionName": "1.4",
+  "apk": "splunk-training-v1.4.apk",
+  "notes": {
+    "fr": "Alerte de nouvelle version dans l'appli.",
+    "en": "New-version alert in the app."
+  }
+}
