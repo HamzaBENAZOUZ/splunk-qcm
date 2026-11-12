@@ -1,9 +1,9 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
-  "apk": "splunk-training-v1.4.apk",
+  "versionCode": 6,
+  "versionName": "1.5",
+  "apk": "splunk-training-v1.5.apk",
   "notes": {
-    "fr": "Alerte de nouvelle version dans l'appli.",
-    "en": "New-version alert in the app."
+    "fr": "Nouvel onglet Suivi : tout le planning de formation (planning, progression, examens, budget, ressources) dans l'appli, avec le même compte.",
+    "en": "New Tracker tab: the whole training plan (schedule, progress, exams, budget, resources) in the app, with the same account."
   }
 }
