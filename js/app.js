@@ -226,10 +226,43 @@ function rerender() {
 }
 
 // ------------------------------------------------------------------ boot
+// ------------------------------------------------------------------ appli Android : nouvelle version
+// L'APK ajoute « SplunkAppVersion/<versionCode> (<versionName>) » à son user-agent. On compare avec
+// app/version.json publié sur GitHub Pages ; si une version plus récente existe, un bandeau propose l'APK.
+const APP_VC = +((navigator.userAgent.match(/SplunkAppVersion\/(\d+)/) || [])[1] || 0);
+const APP_VN = (navigator.userAgent.match(/SplunkAppVersion\/\d+ \(([^)]+)\)/) || [])[1] || String(APP_VC);
+const UPD_KEY = "splunk-upd-dismissed";
+let updInfo = null;
+function renderUpdate() {
+  let box = document.getElementById("upd-banner");
+  let dis = 0; try { dis = +localStorage.getItem(UPD_KEY) || 0; } catch {}
+  if (!updInfo || updInfo.versionCode <= APP_VC || updInfo.versionCode <= dis) { if (box) box.remove(); return; }
+  const fr = getLang() === "fr";
+  if (!box) { box = document.createElement("div"); box.id = "upd-banner"; box.className = "upd-banner"; box.setAttribute("role", "status"); document.body.appendChild(box); }
+  const notes = updInfo.notes && updInfo.notes[fr ? "fr" : "en"];
+  box.innerHTML = `<div class="upd-txt"><strong class="mono">⬆ ${esc((fr ? "Nouvelle version de l'appli : " : "New app version: ") + updInfo.versionName)}</strong>
+${notes ? `<small>${esc(notes)}</small>` : ""}<small>${esc(fr ? `Installée : ${APP_VN}. Ouvre le fichier téléchargé pour mettre à jour, ta progression est conservée.` : `Installed: ${APP_VN}. Open the downloaded file to update, your progress is kept.`)}</small></div>
+<div class="upd-acts"><a class="btn btn-primary btn-sm" href="${esc(updInfo.apk)}">${fr ? "Télécharger" : "Download"}</a><button type="button" class="btn btn-ghost btn-sm" id="upd-later">${fr ? "Plus tard" : "Later"}</button></div>`;
+  box.querySelector("#upd-later").addEventListener("click", () => { try { localStorage.setItem(UPD_KEY, String(updInfo.versionCode)); } catch {} renderUpdate(); });
+}
+async function checkUpdate() {
+  if (!APP_VC || navigator.onLine === false) return;
+  try {
+    const r = await fetch("app/version.json?t=" + Date.now(), { cache: "no-store" }); if (!r.ok) return;
+    const j = await r.json();
+    if (j && Number.isInteger(j.versionCode) && typeof j.apk === "string") {
+      updInfo = { ...j, apk: new URL(j.apk, location.href).href, versionName: String(j.versionName || j.versionCode) };
+      renderUpdate();
+    }
+  } catch {}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
+
 async function boot() {
+  checkUpdate();
   setTheme(currentTheme());
   document.getElementById("btn-theme").addEventListener("click", () => setTheme(currentTheme() === "light" ? "dark" : "light"));
-  document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { setLang(b.dataset.lang); rerender(); }));
+  document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { setLang(b.dataset.lang); rerender(); renderUpdate(); }));
   applyStaticTexts();
 
   const configured = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);

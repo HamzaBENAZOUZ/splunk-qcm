@@ -21,7 +21,7 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== "GET" || !CACHED_HOSTS.includes(url.host)) return;
-  if (url.host === self.location.host && url.pathname.includes("/private/")) return;
+  if (url.host === self.location.host && (url.pathname.includes("/private/") || url.pathname.includes("/app/"))) return;
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {

@@ -405,3 +405,13 @@ h1 { font-family: var(--sans); font-weight: 800; letter-spacing: -.02em; }
 .badge-ok { color: var(--org); border-color: color-mix(in srgb, var(--org) 45%, transparent); }
 .toast-ok { border-color: var(--green); color: var(--green); }
 @media (prefers-reduced-motion: reduce) { .hero::after { animation: none; } }
+
+/* Bandeau « nouvelle version » de l'appli Android */
+.upd-banner { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60;
+  width: min(560px, calc(100% - 24px)); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px;
+  background: var(--panel-solid); color: var(--text); border: 1px solid var(--green); border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.upd-banner .upd-txt { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.upd-banner small { opacity: .75; font-size: 12.5px; }
+.upd-banner .upd-acts { display: flex; gap: 8px; }
+@media (max-width: 560px) { .upd-banner .upd-acts { width: 100%; } .upd-banner .upd-acts > * { flex: 1; justify-content: center; text-align: center; } }
