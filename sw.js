@@ -4,7 +4,7 @@
 const CACHE = "splunk-site-v1";
 const FILES = [
   "./", "index.html", "css/style.css", "js/app.js", "js/store.js", "js/i18n.js", "js/offline.js", "js/matrix.js",
-  "js/config.js", "assets/favicon.svg",
+  "js/config.js", "js/suivi.js", "js/suivi-data.js", "assets/favicon.svg",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js",
   "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;500;600&display=swap",
 ];

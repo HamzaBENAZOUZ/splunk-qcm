@@ -1,6 +1,7 @@
 import { SupabaseStore, LocalStore, latestByQuestion } from "./store.js";
 import { t, getLang, setLang, locale } from "./i18n.js";
 import { offlineEnabled, registerSW, unregisterSW, autonomous, setAutonomous } from "./offline.js";
+import { createSuivi } from "./suivi.js";
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
 const IN_APP = !!window.AndroidTTS;
@@ -222,7 +223,33 @@ function rerender() {
   if (state.view === "quiz" && state.quiz) return renderQuiz();
   if (state.view === "results" && state.lastResult) return renderResults();
   if (state.view === "history") return renderHistory();
+  if (state.view === "suivi") return renderSuiviView();
   if (state.view === "home") return renderHome();
+}
+
+// ------------------------------------------------------------------ onglet Suivi (planning de formation)
+function suivi() {
+  if (!state.suivi) state.suivi = createSuivi({ store: state.store, getLang, esc, toast, userId: () => state.session?.user?.id });
+  return state.suivi;
+}
+function renderSuiviView() {
+  stopTimer();
+  state.view = "suivi";
+  suivi().render(app);
+}
+/** Barre de navigation principale (Entraînement / Suivi / Historique) : onglet actif, masquée pendant un quiz. */
+function paintNav() {
+  const nav = document.getElementById("main-nav"); if (!nav) return;
+  const logged = !!state.session && state.chapters.length > 0 && state.view !== "login";
+  nav.hidden = !logged;
+  document.body.classList.toggle("has-nav", logged && state.view !== "quiz");
+  document.body.classList.toggle("in-quiz", state.view === "quiz");
+  const cur = state.view === "suivi" ? "suivi" : state.view === "history" ? "history" : "home";
+  nav.querySelectorAll("[data-main]").forEach(a => {
+    a.setAttribute("aria-current", a.dataset.main === cur ? "page" : "false");
+    const k = { home: "nav.train", suivi: "nav.suivi", history: "nav.history" }[a.dataset.main];
+    const lab = a.querySelector("span"); if (lab) lab.textContent = getLang() === "fr" ? { "nav.train": "Entraînement", "nav.suivi": "Suivi", "nav.history": "Historique" }[k] : { "nav.train": "Practice", "nav.suivi": "Tracker", "nav.history": "History" }[k];
+  });
 }
 
 // ------------------------------------------------------------------ boot
@@ -262,7 +289,7 @@ async function boot() {
   checkUpdate();
   setTheme(currentTheme());
   document.getElementById("btn-theme").addEventListener("click", () => setTheme(currentTheme() === "light" ? "dark" : "light"));
-  document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { setLang(b.dataset.lang); rerender(); renderUpdate(); }));
+  document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { setLang(b.dataset.lang); rerender(); renderUpdate(); paintNav(); }));
   applyStaticTexts();
 
   const configured = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY);
@@ -275,9 +302,12 @@ async function boot() {
   applyStaticTexts();
 
   document.getElementById("btn-logout").addEventListener("click", async () => {
-    stopTimer(); await state.store.signOut(); unregisterSW(); state.session = null; state.chapters = []; renderLogin();
+    stopTimer(); await state.store.signOut(); unregisterSW(); state.session = null; state.chapters = [];
+    if (state.suivi) { state.suivi.forget(); state.suivi = null; }   // le suivi d'un compte ne reste pas sur l'appareil
+    renderLogin(); paintNav();
   });
   window.addEventListener("hashchange", route);
+  window.addEventListener("hashchange", () => setTimeout(paintNav, 0));
   window.addEventListener("online", () => setTimeout(backOnline, 1500));
   // Dans l'application Android, le code du site est embarqué dans l'APK : pas besoin de service worker.
   if (IN_APP) unregisterSW();
@@ -317,6 +347,7 @@ async function start() {
       if (n) toast(t("off.synced", { n }), "ok");
     }
     await refreshProgress();
+    suivi().sync(true);
     applyStaticTexts();
     // Application Android : tout est téléchargé automatiquement pour pouvoir réviser hors ligne.
     if (IN_APP && state.store.kind === "supabase" && !state.store.offline && !offlineEnabled()) {
@@ -325,6 +356,7 @@ async function start() {
         .catch(e => { console.error(e); toast(t("off.fail") + (e.message || e), "err"); });
     }
     route();
+    paintNav();
   } catch (e) {
     console.error(e);
     errorPanel(t("err.title"), e.message || String(e), t("err.seeReadme"));
@@ -408,6 +440,7 @@ async function refreshProgress() {
 
 function route() {
   stopSpeak();
+  setTimeout(paintNav, 0);
   if (!state.session || !state.chapters.length) return;
   const h = location.hash.replace(/^#\/?/, "");
   if (state.quiz && h !== "quiz") {
@@ -418,6 +451,7 @@ function route() {
   if (h === "quiz" && state.quiz) return renderQuiz();
   if (h === "results" && state.lastResult) return renderResults();
   if (h === "history") return renderHistory();
+  if (h === "suivi") return renderSuiviView();
   renderHome();
 }
 const go = h => { if (location.hash === `#/${h}`) route(); else location.hash = `#/${h}`; };
