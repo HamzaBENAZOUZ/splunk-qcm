@@ -137,25 +137,45 @@ function speakAnswer(q, btn, lang = "en", mode = "all") {
   u.onend = u.onerror = done;
   speechSynthesis.speak(u);
 }
-/** Lecture d'un texte libre (onglet Books) : langue, vitesse, et rappel à la fin de la lecture. */
-function speakText(text, lang = "en", rate = 1, done = () => {}) {
+/**
+ * Voix disponibles pour une langue (onglet Books) : [{ id, label }].
+ * Navigateur : voix de speechSynthesis ; appli Android : voix du moteur vocal du téléphone (pont AndroidTTS.voices).
+ */
+function listVoices(lang = "en") {
+  if (!canSpeak) return [];
+  if (nativeTTS) {
+    if (typeof nativeTTS.voices !== "function") return [];
+    try {
+      return JSON.parse(nativeTTS.voices() || "[]").filter(v => v.lang.toLowerCase().startsWith(lang)).map(v => {
+        const short = v.name.replace(/^[a-z]{2,3}-[a-z]{2,3}-x-/i, "").replace(/-(local|network)$/i, "");
+        return { id: v.name, label: `${v.lang} · ${short}${v.net ? (lang === "fr" ? " · en ligne" : " · online") : ""}${v.q >= 400 ? " ★" : ""}` };
+      });
+    } catch { return []; }
+  }
+  return speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace("_", "-").startsWith(lang))
+    .map(v => ({ id: v.name, label: `${v.name.replace(/^Microsoft |^Google /, "")} (${v.lang})` }));
+}
+/** Lecture d'un texte libre (onglet Books) : langue, vitesse, voix choisie (id de listVoices, vide = automatique), rappel à la fin. */
+function speakText(text, lang = "en", rate = 1, done = () => {}, voiceId = "") {
   if (!canSpeak) return done();
   if (nativeTTS) {
     window.__ttsDone = done;
     if (typeof nativeTTS.setRate === "function") nativeTTS.setRate(rate);
+    if (typeof nativeTTS.setVoice === "function") nativeTTS.setVoice(lang === "fr" ? "fr" : "en", voiceId || "");
     if (lang === "fr" && canSpeakFr) nativeTTS.speakLang(text, "fr-FR"); else nativeTTS.speak(text);
     return;
   }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang === "fr" ? "fr-FR" : "en-US"; u.rate = rate;
-  const v = lang === "fr" ? pickVoiceFr() : pickVoice();
+  const v = (voiceId && speechSynthesis.getVoices().find(x => x.name === voiceId)) || (lang === "fr" ? pickVoiceFr() : pickVoice());
   if (v) u.voice = v;
   u.onend = () => done();
   u.onerror = e => { if (e.error !== "interrupted" && e.error !== "canceled") done(); };
   speechSynthesis.speak(u);
 }
-const TTS = { can: canSpeak, canFr: canSpeakFr, speak: speakText, stop: () => { if (nativeTTS) nativeTTS.stop(); else if (canSpeak) speechSynthesis.cancel(); } };
+const TTS = { can: canSpeak, canFr: canSpeakFr, speak: speakText, voices: listVoices,
+  onVoices: fn => { if (canSpeak && !nativeTTS && speechSynthesis.addEventListener) speechSynthesis.addEventListener("voiceschanged", fn); }, stop: () => { if (nativeTTS) nativeTTS.stop(); else if (canSpeak) speechSynthesis.cancel(); } };
 /**
  * Bouton de lecture, dans la langue affichée (français : « Lire… », anglais : « Listen… »).
  *  kind "all"    : « Lire tout » à côté de la question (question + propositions, puis réponse et explication
