@@ -1,9 +1,9 @@
 {
-  "versionCode": 9,
-  "versionName": "1.8",
-  "apk": "splunk-training-v1.8.apk",
+  "versionCode": 10,
+  "versionName": "1.9",
+  "apk": "splunk-training-v1.9.apk",
   "notes": {
-    "fr": "Lecture à voix haute : choisis ta voix parmi celles du téléphone, ralentis ou accélère (0,5× à 2,5×), passe d'une phrase à l'autre. Nouveau bouton pour supprimer un livre, avec confirmation. Sur ordinateur (Chrome, Edge), traduction automatique en français des chapitres en anglais.",
-    "en": "Read aloud: pick a voice from those on your phone, slow down or speed up (0.5× to 2.5×), skip from one sentence to the next. New button to delete a book, with confirmation. On desktop (Chrome, Edge), machine translation of English chapters into French."
+    "fr": "Le numéro de version s'affiche à côté du logo. Rappel de la 1.8 : choix de la voix, vitesse de lecture, lecture phrase par phrase, suppression d'un livre avec confirmation.",
+    "en": "The version number is shown next to the logo. From 1.8: voice choice, reading speed, sentence-by-sentence reading, book deletion with confirmation."
   }
 }

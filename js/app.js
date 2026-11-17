@@ -336,8 +336,26 @@ async function checkUpdate() {
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
 
+/** Numéro de version à côté du logo : version installée dans l'appli Android, sinon version publiée du site (app/version.json). */
+async function showVersion() {
+  const el = document.getElementById("app-ver"); if (!el) return;
+  const put = (vn, app) => {
+    el.textContent = "v" + vn; el.hidden = false;
+    el.title = getLang() === "fr" ? (app ? `Version de l'appli : ${vn}` : `Version du site : ${vn}`) : (app ? `App version: ${vn}` : `Site version: ${vn}`);
+  };
+  if (APP_VC) return put(APP_VN, true);
+  try {
+    let r = null;
+    try { r = await fetch("app/version.json", { cache: "no-cache" }); } catch { r = null; }
+    if (!r || !r.ok) return;
+    const j = await r.json();
+    if (j && j.versionName) put(String(j.versionName), false);
+  } catch {}
+}
+
 async function boot() {
   checkUpdate();
+  showVersion();
   setTheme(currentTheme());
   document.getElementById("btn-theme").addEventListener("click", () => setTheme(currentTheme() === "light" ? "dark" : "light"));
   document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { setLang(b.dataset.lang); rerender(); renderUpdate(); paintNav(); }));
