@@ -11,7 +11,8 @@ import * as src from "./doc-files.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
 const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:";
-const RATES = [0.8, 0.9, 1, 1.15, 1.3, 1.5];
+const RATE_MIN = 0.5, RATE_MAX = 2.5, RATE_STEP = 0.1;
+const RATE_PRESETS = [0.75, 1, 1.25, 1.5, 2];
 
 const L = {
   fr: {
@@ -45,7 +46,17 @@ const L = {
     imported: "Importé", srcFile: "Fichier d'origine", srcApp: "copie gardée dans l'appli", srcHandle: "lien vers le fichier sur ce PC",
     srcCopy: "copie gardée dans ce navigateur", srcNone: "pas sur cet appareil", resplit: "Redécouper le fichier",
     srcGone: "Le fichier d'origine n'est plus disponible ici (déplacé, renommé ou importé depuis un autre appareil). Choisis-le à nouveau.",
-    del: "Supprimer ce livre", delSure: "Confirmer la suppression", delOk: "Livre supprimé", voice: "Voix",
+    del: "Supprimer ce livre", delSure: "Supprimer", delOk: "Livre supprimé", voice: "Voix", delQ: "Supprimer « {t} » ?",
+    delTxt: "Le livre, ses {n} chapitres et ta progression seront effacés de ton compte, sur tous tes appareils. Cette action est définitive.",
+    delUp: "Pour le retrouver, il faudra importer à nouveau le fichier.", delBook: "Pour le retrouver, il faudra réimporter son fichier .book.json.", cancel: "Annuler",
+    prevS: "Phrase précédente", nextS: "Phrase suivante", settings: "Réglages de lecture", voiceOf: "Voix ({l})", auto: "Automatique",
+    noVoices: "Aucune autre voix trouvée sur cet appareil.", tryV: "Essayer", slower: "Ralentir", faster: "Accélérer",
+    para: "Paragraphe", sample: "Bonjour, voici la voix choisie pour la lecture de tes livres.", sampleEn: "Hello, this is the voice chosen to read your books.",
+    sentOf: "Phrase {i} sur {n}", pPrev: "Précédent", pNext: "Suivant",
+    tr: "Traduire en français", trOn: "Traduction automatique (sur l'appareil, par le navigateur) : le texte peut contenir des erreurs.",
+    trBusy: "Traduction du chapitre… {i}/{n}", trDl: "Téléchargement du module de traduction du navigateur… {p} %", trRetry: "Traduire ce chapitre",
+    trNo: "Traduction automatique indisponible ici : elle utilise le traducteur intégré de Chrome ou Edge récents sur ordinateur.",
+    trErr: "La traduction automatique a échoué", trOff: "Texte original", trSlow: "le navigateur n'a pas répondu",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -78,7 +89,17 @@ const L = {
     imported: "Imported", srcFile: "Original file", srcApp: "copy kept in the app", srcHandle: "link to the file on this PC",
     srcCopy: "copy kept in this browser", srcNone: "not on this device", resplit: "Split the file again",
     srcGone: "The original file is no longer available here (moved, renamed or imported from another device). Pick it again.",
-    del: "Delete this book", delSure: "Confirm deletion", delOk: "Book deleted", voice: "Voice",
+    del: "Delete this book", delSure: "Delete", delOk: "Book deleted", voice: "Voice", delQ: "Delete “{t}”?",
+    delTxt: "The book, its {n} chapters and your progress will be erased from your account, on all your devices. This cannot be undone.",
+    delUp: "To get it back, you will have to import the file again.", delBook: "To get it back, you will have to re-import its .book.json file.", cancel: "Cancel",
+    prevS: "Previous sentence", nextS: "Next sentence", settings: "Reading settings", voiceOf: "Voice ({l})", auto: "Automatic",
+    noVoices: "No other voice found on this device.", tryV: "Try", slower: "Slower", faster: "Faster",
+    para: "Paragraph", sample: "Bonjour, voici la voix choisie pour la lecture de tes livres.", sampleEn: "Hello, this is the voice chosen to read your books.",
+    sentOf: "Sentence {i} of {n}", pPrev: "Previous", pNext: "Next",
+    tr: "Translate to French", trOn: "Machine translation (on this device, by the browser): the text may contain mistakes.",
+    trBusy: "Translating the chapter… {i}/{n}", trDl: "Downloading the browser's translation model… {p}%", trRetry: "Translate this chapter",
+    trNo: "Machine translation is not available here: it uses the built-in translator of recent Chrome or Edge on desktop.",
+    trErr: "Machine translation failed", trOff: "Original text", trSlow: "the browser did not respond",
   },
 };
 
@@ -89,6 +110,10 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   let P = rdj(PKEY) || {};
   P.books ||= {}; P.last ||= {}; P.pos ||= {}; P.dirty ||= {};
   const prefs = { lang: null, rate: 1, font: 1, ...(rdj(PREF) || {}) };
+  prefs.vname ||= {};                                   // voix choisie par langue : { fr: id, en: id }
+  const clampRate = r => Math.round(Math.min(RATE_MAX, Math.max(RATE_MIN, +r || 1)) * 100) / 100;
+  prefs.rate = clampRate(prefs.rate);
+  const say = (txt, lang, done) => tts.speak(txt, lang, prefs.rate, done, prefs.vname[lang] || "");
   let lib = null;                 // liste des livres (sommaires)
   const full = new Map();         // mode local : livre complet par id
   const mem = new Map();          // chapitres déjà chargés (id|n)
@@ -368,9 +393,9 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
           ${upl(b) ? `<div class="bk-src">
             <p class="muted mono bk-src-info">${esc(upl(b).kind.toUpperCase())} · ${esc(t("srcFile"))} : <span id="bk-src-name">…</span></p>
             ${canDl ? `<div class="row"><button class="btn btn-ghost btn-sm" id="bk-resplit">✂ ${esc(t("resplit"))}</button>
-              <button class="btn btn-ghost btn-sm bk-del" id="bk-del">🗑 ${esc(t("del"))}</button>
               <input type="file" id="bk-up-inp" accept="${src.ACCEPT}" hidden></div>` : ""}
           </div>` : ""}
+          ${canDl ? `<p class="bk-del-row"><button class="btn btn-ghost btn-sm bk-del" id="bk-del">🗑 ${esc(t("del"))}</button></p>` : ""}
         </div>
       </header>
       <h2 class="bk-toc-title mono">${esc(t("toc"))}</h2>
@@ -390,11 +415,41 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       try { await downloadBook(b); toast(t("dlOk"), "ok"); } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
       renderBook(b);
     };
+    const del = root.querySelector("#bk-del");
+    if (del) del.onclick = () => confirmDelete(b);
     if (upl(b)) bookSource(b);
   }
 
+  /** Fenêtre de confirmation avant de supprimer un livre (tous les livres, importés ou non). */
+  function confirmDelete(b) {
+    const title = pick(b, "title", uiLang());
+    const ov = document.createElement("div");
+    ov.className = "bk-modal-ov";
+    ov.innerHTML = `<div class="panel bk-modal" role="alertdialog" aria-modal="true" aria-labelledby="bk-del-q">
+      <h2 id="bk-del-q">🗑 ${esc(t("delQ", { t: title }))}</h2>
+      <p>${esc(t("delTxt", { n: b.chapters.length }))}</p>
+      <p class="muted">${esc(t(upl(b) ? "delUp" : "delBook"))}</p>
+      <div class="row bk-modal-acts"><button class="btn btn-ghost" data-m="no">${esc(t("cancel"))}</button>
+        <button class="btn btn-danger" data-m="yes">🗑 ${esc(t("delSure"))}</button></div></div>`;
+    const prevFocus = document.activeElement;
+    const close = () => { ov.remove(); removeEventListener("keydown", onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); };
+    const onKey = e => { if (e.key === "Escape") close(); };
+    addEventListener("keydown", onKey);
+    ov.onclick = async e => {
+      if (e.target === ov) return close();
+      const m = e.target.closest("[data-m]"); if (!m) return;
+      if (m.dataset.m === "no") return close();
+      ov.querySelectorAll("button").forEach(x => (x.disabled = true));
+      m.textContent = "⏳ " + t("delSure") + "…";
+      try { await deleteBook(b); close(); toast(t("delOk"), "ok"); location.hash = "#/books"; }
+      catch (err) { console.error(err); toast(err.message || String(err), "err"); close(); }
+    };
+    document.body.appendChild(ov);
+    ov.querySelector('[data-m="no"]').focus();
+  }
+
   /* ---------------- import d'un cours PDF / EPUB ---------------- */
-  /** Fichier d'origine d'un livre importé : où il est gardé, redécoupage, suppression du livre. */
+  /** Fichier d'origine d'un livre importé : où il est gardé, redécoupage. */
   async function bookSource(b) {
     const uid = userId(), r = await src.info(uid, b.id);
     const nm = root.querySelector("#bk-src-name"); if (!nm) return;
@@ -409,13 +464,6 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
         catch (e) { if (e.code !== "gone") throw e; known = false; nm.textContent = t("srcNone"); toast(t("srcGone"), "warn"); return; }
         await startUpload(inp, b, { file, keep: null });
       } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
-    };
-    const del = root.querySelector("#bk-del");
-    if (del) del.onclick = async () => {
-      if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "⚠ " + t("delSure"); return; }
-      del.disabled = true;
-      try { await deleteBook(b); toast(t("delOk"), "ok"); location.hash = "#/books"; }
-      catch (e) { console.error(e); toast(e.message || String(e), "err"); del.disabled = false; }
     };
   }
 
@@ -515,7 +563,12 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   /* ---------------- lecture d'un chapitre ---------------- */
   function renderChapter(b, ch) {
     stop();
-    const u = upl(b), lang = u ? voiceOf(b) : cLang(), n = ch.n, i = b.chapters.findIndex(c => c.n === n);
+    const u = upl(b), n = ch.n, i = b.chapters.findIndex(c => c.n === n);
+    // Chapitre sans texte français : traduction automatique par le navigateur (Translator API de Chrome / Edge), jamais enregistrée
+    const canTr = trSupported();
+    const wantFr = u ? !!(u.lang === "en" && prefs.tr && prefs.tr[b.id]) : (cLang() === "fr" && !ch.html_fr);
+    const trOn = wantFr && canTr;
+    const lang = trOn ? "fr" : u ? voiceOf(b) : (cLang() === "fr" && !ch.html_fr ? "en" : cLang());
     const prev = b.chapters[i - 1], next = b.chapters[i + 1];
     P.last[b.id] = n; wrj(PKEY, P);
     const r = rec(b.id, n), html = (!u && lang === "fr" && ch.html_fr) || ch.html_en || "";
@@ -526,24 +579,29 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       <p class="bk-crumbs mono"><a href="#/books">${esc(t("lib"))}</a> › <a href="${base}">${esc(pick(b, "title", uiLang()))}</a></p>
       <header class="bk-ch-head">
         <p class="kicker mono">${esc(pick(ch, "section", lang))}${pick(ch, "section", lang) ? " · " : ""}${esc(t("chapter"))} ${n}/${b.chapters.length}</p>
-        <h1 class="bk-ch-title" lang="${lang}">${esc(pick(ch, "title", lang))}</h1>
+        <h1 class="bk-ch-title" lang="${lang}">${esc(pick(ch, "title", trOn ? "en" : lang))}</h1>
         <div class="bk-tools">
-          ${u ? `<div class="seg" role="group" aria-label="${esc(t("upVoice"))}" title="${esc(t("upVoice"))}">
+          ${u ? `${trOn ? "" : `<div class="seg" role="group" aria-label="${esc(t("upVoice"))}" title="${esc(t("upVoice"))}">
             <span class="seg-lab mono muted">${esc(t("voice"))}</span>
             <button class="seg-btn mono" data-voice="fr" aria-pressed="${lang === "fr"}">FR</button>
             <button class="seg-btn mono" data-voice="en" aria-pressed="${lang === "en"}">EN</button>
-          </div>` : `<div class="seg" role="group" aria-label="${esc(t("content"))}">
+          </div>`}
+          ${u.lang === "en" ? `<button class="btn btn-ghost btn-sm" id="bk-tr" aria-pressed="${trOn}" ${canTr ? "" : "disabled"} title="${esc(canTr ? t("tr") : t("trNo"))}">🌐 ${esc(trOn ? t("trOff") : t("tr"))}</button>` : ""}`
+          : `<div class="seg" role="group" aria-label="${esc(t("content"))}">
             <button class="seg-btn mono" data-clang="en" aria-pressed="${lang === "en"}">EN</button>
-            <button class="seg-btn mono" data-clang="fr" aria-pressed="${lang === "fr"}" ${ch.html_fr ? "" : "disabled"}>FR</button>
+            <button class="seg-btn mono" data-clang="fr" aria-pressed="${lang === "fr"}" ${ch.html_fr || canTr ? "" : "disabled"}
+              title="${esc(ch.html_fr ? "Français" : canTr ? t("tr") : t("trNo"))}">FR${ch.html_fr ? "" : " 🌐"}</button>
           </div>`}
           <div class="seg" role="group" aria-label="${esc(t("font"))}">
             <button class="seg-btn mono" data-font="-1" title="${esc(t("font"))}">A−</button>
             <button class="seg-btn mono" data-font="1" title="${esc(t("font"))}">A+</button>
           </div>
-          ${tts.can ? `<button class="btn btn-primary btn-sm" id="bk-listen">🔊 ${esc(pos ? t("resume") : t("listen"))}</button>` : ""}
+          ${tts.can ? `<button class="btn btn-primary btn-sm" id="bk-listen">🔊 ${esc(pos ? t("resume") : t("listen"))}</button>
+            <button class="btn btn-ghost btn-sm" id="bk-set-open" title="${esc(t("settings"))}">⚙ ${esc(t("settings"))}</button>` : ""}
           ${r.r ? `<span class="bk-read-tag mono">✓ ${esc(t("isRead"))}</span>` : ""}
         </div>
       </header>
+      ${trOn ? `<p class="bk-tr-note mono" id="bk-tr-note" role="status">🌐 ${esc(t("trOn"))}</p>` : ""}
       <article class="bk-content" lang="${lang}">${html}</article>
       ${notes ? `<aside class="bk-notes" lang="${lang}"><h3 class="mono">⚑ ${esc(t("notes"))}</h3><p class="muted bk-notes-sub">${esc(t("notesSub"))}</p>${notes}</aside>` : ""}
       <footer class="bk-end panel">
@@ -558,18 +616,39 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
         </nav>
       </footer>
     </div>
+    <section class="bk-set panel" id="bk-set" hidden role="dialog" aria-label="${esc(t("settings"))}">
+      <div class="bk-set-head"><h3 class="mono">⚙ ${esc(t("settings"))}</h3>
+        <button class="icon-btn" data-set="close" title="${esc(t("close"))}" aria-label="${esc(t("close"))}">✕</button></div>
+      <label class="bk-set-f"><span class="mono muted" id="bk-voice-lab"></span>
+        <span class="row bk-set-voice"><select id="bk-voice"></select>
+        <button class="btn btn-ghost btn-sm" data-set="try">🔊 ${esc(t("tryV"))}</button></span></label>
+      <p class="muted bk-set-none" id="bk-voice-none" hidden>${esc(t("noVoices"))}</p>
+      <div class="bk-set-f"><span class="mono muted">${esc(t("speed"))} : <strong id="bk-rate-v"></strong></span>
+        <div class="row bk-set-rate">
+          <button class="btn btn-ghost btn-sm mono" data-set="slower" title="${esc(t("slower"))}" aria-label="${esc(t("slower"))}">−</button>
+          <input type="range" id="bk-rate" min="${RATE_MIN}" max="${RATE_MAX}" step="0.05" aria-label="${esc(t("speed"))}">
+          <button class="btn btn-ghost btn-sm mono" data-set="faster" title="${esc(t("faster"))}" aria-label="${esc(t("faster"))}">+</button>
+        </div>
+        <div class="row bk-set-pre">${RATE_PRESETS.map(x => `<button class="seg-btn mono" data-rate="${x}">${x}×</button>`).join("")}</div>
+      </div>
+      <div class="bk-set-f"><span class="mono muted">${esc(t("para"))}</span>
+        <div class="row"><button class="btn btn-ghost btn-sm" data-pl="prevp" title="${esc(t("prevP"))}">⏪ ${esc(t("pPrev"))}</button>
+          <button class="btn btn-ghost btn-sm" data-pl="nextp" title="${esc(t("nextP"))}">${esc(t("pNext"))} ⏩</button></div></div>
+    </section>
     <div class="bk-player" id="bk-player" hidden role="region" aria-label="Audio">
-      <button class="icon-btn" data-pl="prev" title="${esc(t("prevP"))}" aria-label="${esc(t("prevP"))}">⏮</button>
+      <button class="icon-btn" data-pl="prev" title="${esc(t("prevS"))}" aria-label="${esc(t("prevS"))}">⏮</button>
       <button class="icon-btn bk-pl-main" data-pl="toggle" title="${esc(t("play"))}" aria-label="${esc(t("play"))}">▶</button>
-      <button class="icon-btn" data-pl="next" title="${esc(t("nextP"))}" aria-label="${esc(t("nextP"))}">⏭</button>
+      <button class="icon-btn" data-pl="next" title="${esc(t("nextS"))}" aria-label="${esc(t("nextS"))}">⏭</button>
       <span class="bk-pl-pos mono" id="bk-pl-pos"></span>
-      <button class="btn btn-ghost btn-xs mono" data-pl="rate" title="${esc(t("speed"))}">${prefs.rate}×</button>
+      <button class="btn btn-ghost btn-xs mono" data-pl="set" title="${esc(t("settings"))}" aria-label="${esc(t("settings"))}">⚙ <span id="bk-pl-rate">${prefs.rate}×</span></button>
       <button class="icon-btn" data-pl="close" title="${esc(t("close"))}" aria-label="${esc(t("close"))}">✕</button>
     </div>`;
 
     root.querySelectorAll("[data-clang]").forEach(btn => btn.onclick = () => {
       if (btn.disabled) return; prefs.lang = btn.dataset.clang; savePrefs(); renderChapter(b, ch);
     });
+    const trb = root.querySelector("#bk-tr");
+    if (trb) trb.onclick = () => { (prefs.tr ||= {})[b.id] = !trOn; savePrefs(); renderChapter(b, ch); };
     root.querySelectorAll("[data-voice]").forEach(btn => btn.onclick = () => {
       (prefs.voice ||= {})[b.id] = btn.dataset.voice; savePrefs(); renderChapter(b, ch);
     });
@@ -586,36 +665,140 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       const io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && root.querySelector(".bk-reader")) { mark(); io.disconnect(); } }, { threshold: 0.6 });
       setTimeout(() => io.observe(end), 1500);
     }
-    setupPlayer(b, ch, lang, mark);
     window.scrollTo(0, 0);
+    if (!trOn) return setupPlayer(b, ch, lang, mark);
+    translateChapter(b, ch).then(ok => {
+      const h = root.querySelector(".bk-reader .bk-ch-title");
+      if (!h || h.dataset.ch !== String(n)) return;
+      setupPlayer(b, ch, ok ? "fr" : "en", mark);
+    });
   }
 
-  /* ---------------- lecteur audio (paragraphe par paragraphe) ---------------- */
-  function speechText(el, lang) {
-    let c = el;
-    if (el.tagName === "LI" && el.querySelector("ul,ol")) { c = el.cloneNode(true); c.querySelectorAll("ul,ol").forEach(x => x.remove()); }
-    return (c.textContent || "").replace(/https?:\/\/\S+/g, `(${t("link")})`).replace(/\s+/g, " ").trim()
-      .replace(/^(.{2,80}?):\s/, (m, a) => (/[.!?]$/.test(a) ? m : a + ". "));
+  /* ---------------- traduction automatique (navigateur) ---------------- */
+  const trCache = new Map();          // chapitres traduits pendant cette session : { title, html } (jamais enregistrés)
+  let trP = null;
+  function trSupported() { return typeof self !== "undefined" && "Translator" in self && typeof self.Translator.create === "function"; }
+  async function translator(onDl) {
+    if (trP) return trP;
+    const av = await withTimeout(self.Translator.availability({ sourceLanguage: "en", targetLanguage: "fr" }), 8000);
+    if (av === "unavailable") throw new Error(t("trNo"));
+    // Pas de réponse pendant 20 s (ni téléchargement en cours) : on abandonne plutôt que de bloquer la lecture
+    let last = Date.now();
+    const create = self.Translator.create({
+      sourceLanguage: "en", targetLanguage: "fr",
+      monitor(m) { m.addEventListener("downloadprogress", e => { last = Date.now(); onDl && onDl(Math.round((e.loaded || 0) * 100)); }); },
+    });
+    const watchdog = new Promise((_, ko) => { const id = setInterval(() => { if (Date.now() - last > 20000) { clearInterval(id); ko(new Error("timeout")); } }, 1000); create.finally(() => clearInterval(id)); });
+    trP = Promise.race([create, watchdog]).catch(e => { trP = null; throw e; });
+    return trP;
   }
+  /** Traduit en place le titre et le texte du chapitre affiché (blocs entiers ; le code n'est pas traduit). */
+  async function translateChapter(b, ch) {
+    const key = b.id + "|" + ch.n, art = root.querySelector(".bk-content"), h1 = root.querySelector(".bk-ch-title");
+    const note = root.querySelector("#bk-tr-note");
+    h1.dataset.ch = String(ch.n);
+    const hit = trCache.get(key);
+    if (hit) { h1.textContent = hit.title; art.innerHTML = hit.html; return true; }
+    const status = msg => { if (note) note.textContent = "🌐 " + msg; };
+    try {
+      const tr = await translator(p => status(t("trDl", { p })));
+      const els = [h1, ...art.querySelectorAll("h3, p, li, td, th, blockquote, dt, dd")].filter(el => !el.closest("pre"));
+      for (let k = 0; k < els.length; k++) {
+        if (!h1.isConnected) return false;                          // chapitre quitté en cours de route
+        status(t("trBusy", { i: k + 1, n: els.length }));
+        const el = els[k];
+        if (!el.querySelector("code, ul, ol, table, p")) {
+          const src = el.textContent.trim(); if (src) el.textContent = await tr.translate(src);
+          continue;
+        }
+        // contenu mélangé (code, sous-listes) : seuls les morceaux de texte hors code sont traduits
+        for (const tn of [...el.childNodes].filter(x => x.nodeType === 3 || (x.nodeType === 1 && /^(a|strong|em|b|i|span)$/i.test(x.tagName)))) {
+          const src = tn.textContent; if (!src.trim()) continue;
+          const out = await tr.translate(src.trim());
+          tn.textContent = (/^\s/.test(src) ? " " : "") + out + (/\s$/.test(src) ? " " : "");
+        }
+      }
+      trCache.set(key, { title: h1.textContent, html: art.innerHTML });
+      status(t("trOn"));
+      return true;
+    } catch (e) {
+      console.warn("traduction", e);
+      if (!note || !note.isConnected) return false;
+      note.innerHTML = `⚠ ${esc(t("trErr"))} : ${esc(e.message === "timeout" ? t("trSlow") : e.message || String(e))} <button class="btn btn-ghost btn-xs" id="bk-tr-retry">${esc(t("trRetry"))}</button>`;
+      note.querySelector("#bk-tr-retry").onclick = () => renderChapter(b, ch);   // un clic donne au navigateur l'accord de télécharger le module
+      return false;
+    }
+  }
+
+  /* ---------------- lecteur audio (phrase par phrase) ---------------- */
+  const cleanSpeech = s => s.replace(/https?:\/\/\S+/g, `(${t("link")})`).replace(/\s+/g, " ").trim()
+    .replace(/^(.{2,80}?):\s/, (m, a) => (/[.!?]$/.test(a) ? m : a + ". "));
+  /** Découpe un texte en phrases : [[début, fin], …] (positions dans le texte), les très courtes collées à leur voisine. */
+  function sentences(raw, lang) {
+    const out = [];
+    if (window.Intl && Intl.Segmenter) {
+      for (const x of new Intl.Segmenter(lang, { granularity: "sentence" }).segment(raw)) out.push([x.index, x.index + x.segment.length]);
+    } else {
+      const rx = /[^.!?…]+(?:[.!?…]+["»”)\]]*\s*|$)/g; let m;
+      while ((m = rx.exec(raw)) && m[0]) out.push([m.index, m.index + m[0].length]);
+    }
+    const res = [];
+    for (const r of out) {
+      const len = raw.slice(r[0], r[1]).trim().length;
+      if (!len) { if (res.length) res[res.length - 1][1] = r[1]; continue; }
+      const last = res[res.length - 1];
+      if (last && (len < 14 || raw.slice(last[0], last[1]).trim().length < 14)) last[1] = r[1];
+      else res.push([r[0], r[1]]);
+    }
+    return res.length ? res : [[0, raw.length]];
+  }
+  /** Plage DOM couvrant les caractères [a, b[ du texte d'un élément (pour surligner la phrase lue). */
+  function textRange(el, a, b) {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const r = document.createRange(); let pos = 0, n, okA = false;
+    while ((n = w.nextNode())) {
+      const L = n.nodeValue.length;
+      if (!okA && a <= pos + L) { r.setStart(n, Math.max(0, a - pos)); okA = true; }
+      if (okA && b <= pos + L) { r.setEnd(n, Math.max(0, b - pos)); return r; }
+      pos += L;
+    }
+    return okA ? (r.setEndAfter(el.lastChild || el), r) : null;
+  }
+  const canHL = () => !!(window.CSS && CSS.highlights && window.Highlight);
+  const clearHL = () => { if (canHL()) CSS.highlights.delete("bk-sent"); };
+
   function setupPlayer(b, ch, lang, onEnd) {
-    const bar = root.querySelector("#bk-player"), btn = root.querySelector("#bk-listen");
+    const bar = root.querySelector("#bk-player"), btn = root.querySelector("#bk-listen"), set = root.querySelector("#bk-set");
     if (!bar || !tts.can) return;
     const speakLang = lang === "fr" && !tts.canFr ? "en" : lang;
     const segs = [];
     root.querySelectorAll(".bk-ch-title, .bk-content h3, .bk-content p, .bk-content li, .bk-notes h3, .bk-notes p").forEach(el => {
       if (el.closest("pre") || el.classList.contains("bk-notes-sub")) return;
-      const txt = speechText(el, lang); if (!txt) return;
-      el.dataset.seg = segs.length; el.classList.add("bk-seg"); segs.push({ el, txt });
+      const nested = el.tagName === "LI" && el.querySelector("ul,ol");
+      const first = segs.length;
+      if (nested) {
+        const c = el.cloneNode(true); c.querySelectorAll("ul,ol").forEach(x => x.remove());
+        const txt = cleanSpeech(c.textContent || ""); if (txt) segs.push({ el, txt, a: null });
+      } else {
+        const raw = el.textContent || "";
+        for (const [a, z] of sentences(raw, lang)) { const txt = cleanSpeech(raw.slice(a, z)); if (txt) segs.push({ el, txt, a, z }); }
+      }
+      if (segs.length > first) { el.dataset.seg = first; el.classList.add("bk-seg"); }
     });
+    if (!segs.length) return;
     const key = b.id + "|" + ch.n;
     player = { segs, i: Math.min(P.pos[key] || 0, segs.length - 1), playing: false, token: 0, lang: speakLang };
     const posEl = bar.querySelector("#bk-pl-pos"), main = bar.querySelector(".bk-pl-main");
     const paint = () => {
-      segs.forEach((s, j) => s.el.classList.toggle("bk-say", j === player.i && !bar.hidden));
+      const cur = segs[player.i], on = !bar.hidden;
+      segs.forEach(s => s.el.classList.toggle("bk-say", on && s.el === cur.el));
+      clearHL();
+      if (on && canHL() && cur.a != null) { const r = textRange(cur.el, cur.a, cur.z); if (r) CSS.highlights.set("bk-sent", new Highlight(r)); }
       posEl.textContent = `${player.i + 1}/${segs.length}`;
+      posEl.title = t("sentOf", { i: player.i + 1, n: segs.length });
       main.textContent = player.playing ? "⏸" : "▶";
       main.title = main.ariaLabel = t(player.playing ? "pause" : "play");
-      bar.querySelector('[data-pl="rate"]').textContent = prefs.rate + "×";
+      bar.querySelector("#bk-pl-rate").textContent = prefs.rate + "×";
     };
     const keep = () => { P.pos[key] = player.i; wrj(PKEY, P); };
     const play = j => {
@@ -623,14 +806,25 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       player.i = j; player.playing = true; keep();
       const my = ++player.token; paint();
       const el = segs[j].el, rc = el.getBoundingClientRect();
-      if (rc.top < 70 || rc.bottom > innerHeight - 140) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      tts.speak(segs[j].txt, player.lang, prefs.rate, () => {
+      if (rc.top < 70 || rc.bottom > innerHeight - 160) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      say(segs[j].txt, player.lang, () => {
         if (!player || my !== player.token) return;
         if (j + 1 < segs.length) play(j + 1);
         else { player.playing = false; player.i = 0; P.pos[key] = 0; wrj(PKEY, P); paint(); onEnd(); }
       });
     };
     const pause = () => { if (!player) return; player.token++; player.playing = false; tts.stop(); paint(); };
+    const go = j => { j = Math.max(0, Math.min(segs.length - 1, j)); if (player.playing) play(j); else { player.i = j; keep(); paint(); } };
+    const paraStart = (i, dir) => {
+      const el = segs[i].el; let j = i;
+      if (dir < 0) {
+        while (j > 0 && segs[j - 1].el === el) j--;                 // début du paragraphe en cours…
+        if (j === i && j > 0) { j--; const e2 = segs[j].el; while (j > 0 && segs[j - 1].el === e2) j--; }   // …ou du précédent
+        return j;
+      }
+      while (j < segs.length - 1 && segs[j].el === el) j++;
+      return j;
+    };
     const open = () => {
       bar.hidden = false; document.body.classList.add("bk-playing");
       if (lang === "fr" && !tts.canFr) toast(t("noVoiceFr"), "warn");
@@ -641,10 +835,55 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       const a = e.target.closest("[data-pl]"); if (!a || !player) return;
       const k = a.dataset.pl;
       if (k === "toggle") player.playing ? pause() : play(player.i);
-      else if (k === "prev") player.playing ? play(Math.max(0, player.i - 1)) : (player.i = Math.max(0, player.i - 1), keep(), paint());
-      else if (k === "next") player.playing ? play(Math.min(segs.length - 1, player.i + 1)) : (player.i = Math.min(segs.length - 1, player.i + 1), keep(), paint());
-      else if (k === "rate") { prefs.rate = RATES[(RATES.indexOf(prefs.rate) + 1) % RATES.length] || 1; savePrefs(); if (player.playing) play(player.i); else paint(); }
-      else if (k === "close") { pause(); bar.hidden = true; document.body.classList.remove("bk-playing"); paint(); }
+      else if (k === "prev") go(player.i - 1);
+      else if (k === "next") go(player.i + 1);
+      else if (k === "set") toggleSet();
+      else if (k === "close") { pause(); bar.hidden = true; set.hidden = true; document.body.classList.remove("bk-playing"); paint(); }
+    };
+
+    /* Réglages : voix parmi celles de l'appareil, vitesse (ralentir / accélérer), saut de paragraphe */
+    const sel = set.querySelector("#bk-voice"), range = set.querySelector("#bk-rate");
+    const fillVoices = () => {
+      const vs = tts.voices ? tts.voices(speakLang) : [], cur = prefs.vname[speakLang] || "";
+      set.querySelector("#bk-voice-lab").textContent = t("voiceOf", { l: speakLang === "fr" ? "français" : "English" });
+      sel.innerHTML = `<option value="">${esc(t("auto"))}</option>` + vs.map(v => `<option value="${esc(v.id)}">${esc(v.label)}</option>`).join("");
+      sel.value = vs.some(v => v.id === cur) ? cur : "";
+      set.querySelector("#bk-voice-none").hidden = vs.length > 0;
+    };
+    const showRate = () => {
+      range.value = prefs.rate;
+      set.querySelector("#bk-rate-v").textContent = prefs.rate + "×";
+      set.querySelectorAll("[data-rate]").forEach(x => x.setAttribute("aria-pressed", +x.dataset.rate === prefs.rate));
+      paint();
+    };
+    const setRate = r => {
+      prefs.rate = clampRate(r); savePrefs(); showRate();
+      if (player && player.playing) play(player.i);                 // la phrase en cours reprend à la nouvelle vitesse
+    };
+    const toggleSet = (force) => {
+      set.hidden = force != null ? !force : !set.hidden;
+      document.body.classList.toggle("bk-set-on", !set.hidden);
+      if (!set.hidden) { fillVoices(); showRate(); }
+    };
+    const so = root.querySelector("#bk-set-open");
+    if (so) so.onclick = () => toggleSet();
+    if (tts.onVoices) tts.onVoices(() => { if (!set.hidden && set.isConnected) fillVoices(); });
+    sel.onchange = () => {
+      prefs.vname[speakLang] = sel.value; savePrefs();
+      if (player && player.playing) play(player.i);
+    };
+    range.oninput = () => { prefs.rate = clampRate(range.value); set.querySelector("#bk-rate-v").textContent = prefs.rate + "×"; };
+    range.onchange = () => setRate(range.value);
+    set.onclick = e => {
+      const r = e.target.closest("[data-rate]"); if (r) return setRate(r.dataset.rate);
+      const pl = e.target.closest("[data-pl]");
+      if (pl && player) { if (bar.hidden) { bar.hidden = false; document.body.classList.add("bk-playing"); } go(paraStart(player.i, pl.dataset.pl === "prevp" ? -1 : 1)); return; }
+      const a = e.target.closest("[data-set]"); if (!a) return;
+      const k = a.dataset.set;
+      if (k === "close") toggleSet(false);
+      else if (k === "slower") setRate(prefs.rate - RATE_STEP);
+      else if (k === "faster") setRate(prefs.rate + RATE_STEP);
+      else if (k === "try") { pause(); say(speakLang === "fr" ? t("sample") : t("sampleEn"), speakLang, () => {}); }
     };
     // Toucher un paragraphe pendant l'écoute : la lecture reprend à partir de là.
     root.querySelector(".bk-reader").addEventListener("click", e => {
@@ -654,7 +893,8 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   }
   function stop() {
     if (player) { player.token++; player.playing = false; player = null; tts.stop(); }
-    document.body.classList.remove("bk-playing");
+    clearHL();
+    document.body.classList.remove("bk-playing", "bk-set-on");
   }
 
   /* ---------------- quiz de fin de chapitre ---------------- */
@@ -716,7 +956,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       let txt = `${x.q} ${opts}`;
       if (i in A) txt += ` ${fr ? "Bonne réponse" : "Correct answer"} ${String.fromCharCode(65 + q.a)}. ${x.e}`;
       btn.classList.add("on");
-      tts.speak(txt, sl, prefs.rate, () => btn.classList.remove("on"));
+      say(txt, sl, () => btn.classList.remove("on"));
     });
     const rt = root.querySelector("#bk-retry");
     if (rt) rt.onclick = () => { quizState = null; renderQuiz(b, ch); window.scrollTo(0, 0); };
