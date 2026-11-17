@@ -73,6 +73,22 @@ Puis **Settings → Pages → Deploy from a branch → main / (root)**. Le site 
 
 Avec l'upload web de GitHub (*Add file → Upload files*), déposez le **contenu** du dossier (index.html, css/, js/…), sans `private/`, et vérifiez qu'aucun dossier temporaire (`7zE…`) n'est créé.
 
+## Onglet Books (livres)
+
+L'onglet **Books** affiche les livres de l'utilisateur : lecture chapitre par chapitre en anglais ou en français, écoute à voix haute (paragraphe par paragraphe, vitesse réglable ; dans l'appli Android, via le moteur vocal du téléphone), note de vérification quand le livre contient une erreur, et quiz bilingue de 5 questions à la fin de chaque chapitre. La progression (chapitres lus, meilleur score) est synchronisée.
+
+**Le contenu des livres n'est jamais dans ce dépôt ni dans l'APK** (droit d'auteur) : il est dans les tables Supabase `splunk_books`, `splunk_book_chapters` (lisibles uniquement par leur propriétaire) et `splunk_book_progress`. Le schéma SQL n'est pas publié ici (aucun fichier .sql dans le dépôt).
+
+Préparer un livre (EPUB ou PDF) :
+
+```bash
+python3 tools/book_extract.py livre.epub private/books/<id>.json      # découpe en chapitres
+# traductions + quiz : private/books/<id>.fr/*.txt (format décrit dans tools/book_build.py)
+python3 tools/book_build.py private/books/<id>.json --cover couverture.jpg   # -> private/books/<id>.book.json
+```
+
+Puis, dans l'appli : onglet Books, « Ajouter un livre (.book.json) ». En mode local, le site lit `private/books/index.json` et les fichiers `.book.json` du même dossier.
+
 ## Modifier ou ajouter des questions
 
 Éditez `private/questions.json` ou `private/practice.json` (champs `q`, `opts`, `ans`, `exp` en anglais ; `q_fr`, `opts_fr`, `exp_fr` en français), puis :
