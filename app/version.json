@@ -1,7 +1,7 @@
 {
   "versionCode": 12,
   "versionName": "2.1",
-  "apk": "splunk-training-v2.1.apk",
+  "apk": "app/splunk-training-v2.1.apk",
   "notes": {
     "fr": "Android Auto : tes livres s'affichent sur l'écran de la voiture. Sur le téléphone, ouvre un livre et touche « Écouter dans la voiture ». Ensuite, choisis le livre et le chapitre dans Android Auto. Les commandes du volant passent d'un chapitre à l'autre, des boutons permettent d'avancer ou de reculer d'une phrase, et la lecture reprend là où tu t'étais arrêté. Les chapitres écoutés en voiture sont marqués comme lus.",
     "en": "Android Auto: your books show up on the car screen. On the phone, open a book and tap “Listen in the car”, then pick the book and chapter in Android Auto. Steering-wheel buttons skip chapters, on-screen buttons move one sentence back or forward, and playback resumes where you stopped. Chapters listened to in the car are marked as read."
