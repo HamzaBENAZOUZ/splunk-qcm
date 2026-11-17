@@ -875,3 +875,6 @@ body.bk-playing .footer { padding-bottom: 96px; }
   border: 1px dashed color-mix(in srgb, var(--cyan) 45%, var(--line)); background: color-mix(in srgb, var(--cyan) 5%, transparent); }
 .bk-tr-note .btn { margin-left: 8px; }
 #bk-tr[aria-pressed="true"] { border-color: var(--cyan); }
+.brand-ver { align-self: center; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted);
+  font-family: var(--mono); font-size: .68rem; font-weight: 600; letter-spacing: 0; line-height: 1.4; white-space: nowrap; }
+.brand-ver[hidden] { display: none; }
