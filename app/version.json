@@ -1,9 +1,9 @@
 {
-  "versionCode": 8,
-  "versionName": "1.7",
-  "apk": "splunk-training-v1.7.apk",
+  "versionCode": 9,
+  "versionName": "1.8",
+  "apk": "splunk-training-v1.8.apk",
   "notes": {
-    "fr": "Books : importe tes propres cours PDF ou EPUB. Ils sont découpés en chapitres sur ton téléphone, à lire et à écouter comme les autres livres. Le fichier d'origine est gardé dans l'appli pour pouvoir le redécouper.",
-    "en": "Books: import your own PDF or EPUB courses. They are split into chapters on your phone, to read and listen to like your other books. The original file is kept in the app so you can split it again."
+    "fr": "Lecture à voix haute : choisis ta voix parmi celles du téléphone, ralentis ou accélère (0,5× à 2,5×), passe d'une phrase à l'autre. Nouveau bouton pour supprimer un livre, avec confirmation. Sur ordinateur (Chrome, Edge), traduction automatique en français des chapitres en anglais.",
+    "en": "Read aloud: pick a voice from those on your phone, slow down or speed up (0.5× to 2.5×), skip from one sentence to the next. New button to delete a book, with confirmation. On desktop (Chrome, Edge), machine translation of English chapters into French."
   }
 }
