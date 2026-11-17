@@ -1,9 +1,9 @@
 {
-  "versionCode": 9,
-  "versionName": "1.8",
-  "apk": "splunk-training-v1.8.apk",
+  "versionCode": 11,
+  "versionName": "2.0",
+  "apk": "splunk-training-v2.0.apk",
   "notes": {
-    "fr": "Lecture à voix haute : choisis ta voix parmi celles du téléphone, ralentis ou accélère (0,5× à 2,5×), passe d'une phrase à l'autre. Nouveau bouton pour supprimer un livre, avec confirmation. Sur ordinateur (Chrome, Edge), traduction automatique en français des chapitres en anglais.",
-    "en": "Read aloud: pick a voice from those on your phone, slow down or speed up (0.5× to 2.5×), skip from one sentence to the next. New button to delete a book, with confirmation. On desktop (Chrome, Edge), machine translation of English chapters into French."
+    "fr": "Version stable 2.0. Écoute des livres écran éteint ou appli en arrière-plan (voiture, poche) : notification et écran verrouillé avec lecture/pause et phrase précédente/suivante, boutons Bluetooth du casque ou du volant, chapitres enchaînés automatiquement. L'appli s'installe aussi sur une télé Android TV et se pilote à la télécommande. Numéro de version affiché à côté du logo.",
+    "en": "Stable 2.0. Listen to books with the screen off or the app in the background (car, pocket): notification and lock screen with play/pause and previous/next sentence, Bluetooth headset and steering-wheel buttons, chapters played one after another. The app also installs on Android TV and works with the remote. Version number shown next to the logo."
   }
 }

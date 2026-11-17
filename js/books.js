@@ -57,6 +57,7 @@ const L = {
     trBusy: "Traduction du chapitre… {i}/{n}", trDl: "Téléchargement du module de traduction du navigateur… {p} %", trRetry: "Traduire ce chapitre",
     trNo: "Traduction automatique indisponible ici : elle utilise le traducteur intégré de Chrome ou Edge récents sur ordinateur.",
     trErr: "La traduction automatique a échoué", trOff: "Texte original", trSlow: "le navigateur n'a pas répondu",
+    chain: "Enchaîner automatiquement le chapitre suivant",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -100,6 +101,7 @@ const L = {
     trBusy: "Translating the chapter… {i}/{n}", trDl: "Downloading the browser's translation model… {p}%", trRetry: "Translate this chapter",
     trNo: "Machine translation is not available here: it uses the built-in translator of recent Chrome or Edge on desktop.",
     trErr: "Machine translation failed", trOff: "Original text", trSlow: "the browser did not respond",
+    chain: "Automatically continue with the next chapter",
   },
 };
 
@@ -113,6 +115,15 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   prefs.vname ||= {};                                   // voix choisie par langue : { fr: id, en: id }
   const clampRate = r => Math.round(Math.min(RATE_MAX, Math.max(RATE_MIN, +r || 1)) * 100) / 100;
   prefs.rate = clampRate(prefs.rate);
+  if (typeof prefs.chain !== "boolean") prefs.chain = !!window.AndroidMedia;   // appli : écoute enchaînée (voiture, écran éteint)
+  // Écoute en arrière-plan dans l'appli Android : notification, écran verrouillé, boutons Bluetooth / volant / télécommande.
+  const media = () => window.AndroidMedia || null;
+  let mediaCtl = null;
+  window.__mediaCmd = cmd => { if (mediaCtl && mediaCtl[cmd]) mediaCtl[cmd](); };
+  addEventListener("keydown", e => {
+    const k = { MediaPlayPause: "toggle", MediaPlay: "play", MediaPause: "pause", MediaStop: "pause", MediaTrackNext: "next", MediaTrackPrevious: "prev" }[e.key];
+    if (k && mediaCtl) { e.preventDefault(); mediaCtl[k](); }
+  });
   const say = (txt, lang, done) => tts.speak(txt, lang, prefs.rate, done, prefs.vname[lang] || "");
   let lib = null;                 // liste des livres (sommaires)
   const full = new Map();         // mode local : livre complet par id
@@ -631,6 +642,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
         </div>
         <div class="row bk-set-pre">${RATE_PRESETS.map(x => `<button class="seg-btn mono" data-rate="${x}">${x}×</button>`).join("")}</div>
       </div>
+      <label class="bk-set-chain"><input type="checkbox" id="bk-chain"> <span>${esc(t("chain"))}</span></label>
       <div class="bk-set-f"><span class="mono muted">${esc(t("para"))}</span>
         <div class="row"><button class="btn btn-ghost btn-sm" data-pl="prevp" title="${esc(t("prevP"))}">⏪ ${esc(t("pPrev"))}</button>
           <button class="btn btn-ghost btn-sm" data-pl="nextp" title="${esc(t("nextP"))}">${esc(t("pNext"))} ⏩</button></div></div>
@@ -799,6 +811,11 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       main.textContent = player.playing ? "⏸" : "▶";
       main.title = main.ariaLabel = t(player.playing ? "pause" : "play");
       bar.querySelector("#bk-pl-rate").textContent = prefs.rate + "×";
+      const m = media();
+      if (m) try {
+        if (on) m.update(!!player.playing, pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`, `${pick(b, "title", uiLang())} · ${t("chapter")} ${ch.n}`);
+        else m.end();
+      } catch { /* ancienne appli */ }
     };
     const keep = () => { P.pos[key] = player.i; wrj(PKEY, P); };
     const play = j => {
@@ -810,7 +827,13 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       say(segs[j].txt, player.lang, () => {
         if (!player || my !== player.token) return;
         if (j + 1 < segs.length) play(j + 1);
-        else { player.playing = false; player.i = 0; P.pos[key] = 0; wrj(PKEY, P); paint(); onEnd(); }
+        else {
+          player.playing = false; player.i = 0; P.pos[key] = 0; wrj(PKEY, P); onEnd();
+          const nx = prefs.chain && nextOf(b, ch.n);
+          if (!nx) return paint();
+          try { sessionStorage.setItem("bk-auto", b.id + "|" + nx); } catch { /* */ }
+          location.hash = `#/books/${encodeURIComponent(b.id)}/${nx}`;        // la lecture reprend au début du chapitre suivant
+        }
       });
     };
     const pause = () => { if (!player) return; player.token++; player.playing = false; tts.stop(); paint(); };
@@ -890,9 +913,23 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       if (bar.hidden || e.target.closest("a, button")) return;
       const s = e.target.closest(".bk-seg"); if (s) play(+s.dataset.seg);
     });
+    const chain = set.querySelector("#bk-chain");
+    chain.checked = prefs.chain;
+    chain.onchange = () => { prefs.chain = chain.checked; savePrefs(); };
+    // Commandes venues de la notification, de l'écran verrouillé, du casque, du volant ou de la télécommande
+    mediaCtl = {
+      toggle: () => (bar.hidden ? open() : player.playing ? pause() : play(player.i)),
+      play: () => (bar.hidden ? open() : player.playing || play(player.i)),
+      pause: () => player && player.playing && pause(),
+      next: () => player && go(player.i + 1),
+      prev: () => player && go(player.i - 1),
+    };
+    let auto = null; try { auto = sessionStorage.getItem("bk-auto"); } catch { /* */ }
+    if (auto === key) { try { sessionStorage.removeItem("bk-auto"); } catch { /* */ } player.i = 0; open(); }
   }
   function stop() {
-    if (player) { player.token++; player.playing = false; player = null; tts.stop(); }
+    mediaCtl = null;
+    if (player) { player.token++; player.playing = false; player = null; tts.stop(); const m = media(); if (m) try { m.end(); } catch { /* */ } }
     clearHL();
     document.body.classList.remove("bk-playing", "bk-set-on");
   }
