@@ -1,9 +1,9 @@
 {
-  "versionCode": 10,
-  "versionName": "1.9",
-  "apk": "splunk-training-v1.9.apk",
+  "versionCode": 11,
+  "versionName": "2.0",
+  "apk": "splunk-training-v2.0.apk",
   "notes": {
-    "fr": "Le numéro de version s'affiche à côté du logo. Rappel de la 1.8 : choix de la voix, vitesse de lecture, lecture phrase par phrase, suppression d'un livre avec confirmation.",
-    "en": "The version number is shown next to the logo. From 1.8: voice choice, reading speed, sentence-by-sentence reading, book deletion with confirmation."
+    "fr": "Version stable 2.0. Écoute des livres écran éteint ou appli en arrière-plan (voiture, poche) : notification et écran verrouillé avec lecture/pause et phrase précédente/suivante, boutons Bluetooth du casque ou du volant, chapitres enchaînés automatiquement. L'appli s'installe aussi sur une télé Android TV et se pilote à la télécommande. Numéro de version affiché à côté du logo.",
+    "en": "Stable 2.0. Listen to books with the screen off or the app in the background (car, pocket): notification and lock screen with play/pause and previous/next sentence, Bluetooth headset and steering-wheel buttons, chapters played one after another. The app also installs on Android TV and works with the remote. Version number shown next to the logo."
   }
 }

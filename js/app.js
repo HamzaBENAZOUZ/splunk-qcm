@@ -3,6 +3,7 @@ import { t, getLang, setLang, locale } from "./i18n.js";
 import { offlineEnabled, registerSW, unregisterSW, autonomous, setAutonomous } from "./offline.js";
 import { createSuivi } from "./suivi.js";
 import { createBooks } from "./books.js";
+import { initTV } from "./tv.js";
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
 const IN_APP = !!window.AndroidTTS;
@@ -354,6 +355,7 @@ async function showVersion() {
 }
 
 async function boot() {
+  initTV();
   checkUpdate();
   showVersion();
   setTheme(currentTheme());

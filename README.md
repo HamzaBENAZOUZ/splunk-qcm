@@ -102,6 +102,11 @@ Le fichier d'origine reste sur l'appareil (`js/doc-files.js`) : dans l'appli And
 
 pdf.js (Apache-2.0) et JSZip (MIT) sont dans `vendor/`, chargés seulement au moment d'un import, et embarqués dans l'APK pour marcher hors ligne.
 
+## Télé et voiture (appli 2.0)
+
+- **Télé (Android TV)** : la même APK s'installe sur une télé Android TV et apparaît sur son écran d'accueil. Sur une télé, l'appli le signale au site (`SplunkTV/1` dans le user-agent) et `js/tv.js` active le mode télécommande : flèches pour passer d'un bouton à l'autre (ou faire défiler un long chapitre), OK pour valider, focus bien visible, texte plus grand. L'import de fichiers est masqué sur la télé. Pour essayer ce mode sur un PC : ajouter `?tv=1` à l'adresse du site.
+- **Voiture** : il n'y a pas d'écran Android Auto (réservé aux applis du Play Store). À la place, l'écoute d'un livre continue écran éteint ou appli en arrière-plan : notification et écran verrouillé avec lecture/pause et phrase précédente/suivante, boutons Bluetooth du casque ou du volant, titre du chapitre affiché sur l'écran de la voiture, pause pendant un appel et reprise après une annonce GPS. Dans les réglages de lecture, « Enchaîner automatiquement le chapitre suivant » (activé par défaut dans l'appli) fait passer d'un chapitre à l'autre sans toucher le téléphone.
+
 ## Modifier ou ajouter des questions
 
 Éditez `private/questions.json` ou `private/practice.json` (champs `q`, `opts`, `ans`, `exp` en anglais ; `q_fr`, `opts_fr`, `exp_fr` en français), puis :
