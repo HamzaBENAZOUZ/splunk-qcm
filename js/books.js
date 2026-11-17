@@ -58,6 +58,9 @@ const L = {
     trNo: "Traduction automatique indisponible ici : elle utilise le traducteur intégré de Chrome ou Edge récents sur ordinateur.",
     trErr: "La traduction automatique a échoué", trOff: "Texte original", trSlow: "le navigateur n'a pas répondu",
     chain: "Enchaîner automatiquement le chapitre suivant",
+    car: "Écouter dans la voiture (Android Auto)", carUpd: "Mettre à jour dans la voiture", carIn: "Dans la voiture",
+    carBusy: "Envoi vers la voiture… {i}/{n}", carOk: "« {t} » est prêt dans Android Auto", carRm: "Retirer de la voiture",
+    carRmOk: "Livre retiré d'Android Auto", carErr: "Envoi vers la voiture impossible", carRead: "{n} chapitre(s) écouté(s) en voiture marqué(s) comme lu(s)",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -102,6 +105,9 @@ const L = {
     trNo: "Machine translation is not available here: it uses the built-in translator of recent Chrome or Edge on desktop.",
     trErr: "Machine translation failed", trOff: "Original text", trSlow: "the browser did not respond",
     chain: "Automatically continue with the next chapter",
+    car: "Listen in the car (Android Auto)", carUpd: "Update in the car", carIn: "In the car",
+    carBusy: "Sending to the car… {i}/{n}", carOk: "“{t}” is ready in Android Auto", carRm: "Remove from the car",
+    carRmOk: "Book removed from Android Auto", carErr: "Could not send to the car", carRead: "{n} chapter(s) listened to in the car marked as read",
   },
 };
 
@@ -136,7 +142,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   const uiLang = () => (getLang() === "en" ? "en" : "fr");
   const t = (k, v) => { let s = L[uiLang()][k] ?? k; if (v) for (const x in v) s = s.replace(`{${x}}`, v[x]); return s; };
   const cLang = () => (prefs.lang === "en" || prefs.lang === "fr" ? prefs.lang : uiLang());
-  const savePrefs = () => wrj(PREF, prefs);
+  const savePrefs = () => { wrj(PREF, prefs); carSettings(); };
   const remote = () => store && store.kind === "supabase" && store.sb && userId();
   const pick = (o, k, lang = cLang()) => (lang === "fr" && o[k + "_fr"]) || o[k] || "";
   // Livre importé depuis un PDF / EPUB : source « upload:pdf:fr » (type de fichier, langue du texte)
@@ -236,11 +242,67 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     const { error } = await store.sb.from(T_BOOKS).delete().eq("id", b.id);
     if (error) throw error;
     await src.remove(userId(), b.id);
+    try { const c = car(); if (c) c.removeBook(b.id); } catch { /* */ }
     delete P.books[b.id]; delete P.last[b.id];
     for (const k of Object.keys(P.pos)) if (k.startsWith(b.id + "|")) delete P.pos[k];
     for (const k of Object.keys(P.dirty)) if (k.startsWith(b.id + "|")) delete P.dirty[k];
     wrj(PKEY, P); wrj(DL + b.id, null);
     lib = null; mem.clear();
+  }
+
+  /* ---------------- Android Auto ---------------- */
+  // Dans l'appli Android, un livre peut être « mis dans la voiture » : son texte, découpé en phrases sur l'appareil,
+  // est confié à l'appli (pont AndroidCar), qui le lit elle-même dans Android Auto, sans la page ni le réseau.
+  const car = () => window.AndroidCar || null;
+  function carSettings() {
+    const c = car(); if (!c) return;
+    try { c.settings(JSON.stringify({ rate: prefs.rate, voice: prefs.vname || {}, chain: prefs.chain })); } catch { /* ancienne appli */ }
+  }
+  const carVersion = b => { const c = car(); try { return c ? c.bookVersion(b.id) || "" : ""; } catch { return ""; } };
+  /** Phrases à lire pour un chapitre (même découpage que le lecteur de la page). */
+  function speechOf(html, lang) {
+    const doc = new DOMParser().parseFromString(`<div>${html || ""}</div>`, "text/html"), out = [];
+    doc.querySelectorAll("h3, p, li").forEach(el => {
+      if (el.closest("pre") || (el.tagName === "P" && el.closest("li"))) return;
+      let raw = el.textContent || "";
+      if (el.tagName === "LI" && el.querySelector("ul,ol")) {
+        const c = el.cloneNode(true); c.querySelectorAll("ul,ol").forEach(x => x.remove());
+        const txt = cleanSpeech(c.textContent || ""); if (txt) out.push(txt); return;
+      }
+      for (const [a, z] of sentences(raw, lang)) { const txt = cleanSpeech(raw.slice(a, z)); if (txt) out.push(txt); }
+    });
+    return out;
+  }
+  async function sendToCar(b, onStep) {
+    const c = car(); if (!c) return;
+    const u = upl(b), want = u ? voiceOf(b) : cLang(), chs = [];
+    for (let i = 0; i < b.chapters.length; i++) {
+      onStep && onStep(i + 1, b.chapters.length);
+      const ch = await loadChapter(b, b.chapters[i].n);
+      const lang = u ? want : (want === "fr" && ch.html_fr ? "fr" : "en");
+      const html = u ? ch.html_en : (lang === "fr" ? ch.html_fr : ch.html_en);
+      const title = pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`;
+      const segs = [title + ".", ...speechOf(html, lang)];
+      if (!c.saveChapter(b.id, ch.n, JSON.stringify({ n: ch.n, title, lang, segs }))) throw new Error(t("carErr"));
+      chs.push({ n: ch.n, title });
+    }
+    const ok = c.saveBook(JSON.stringify({ id: b.id, title: pick(b, "title", want), author: b.author || "", version: String(b.version || ""),
+      cover: b.cover && /^data:image\/(png|jpe?g|webp);base64,/.test(b.cover) ? b.cover : "", chapters: chs }));
+    if (!ok) throw new Error(t("carErr"));
+    carSettings();
+  }
+  /** Chapitres écoutés jusqu'au bout dans la voiture : marqués comme lus ici (et synchronisés). */
+  function carProgress() {
+    const c = car(); if (!c) return;
+    let list = [];
+    try { list = JSON.parse(c.takeProgress() || "[]"); } catch { return; }
+    let n = 0;
+    for (const x of list) {
+      if (!x || typeof x.book !== "string" || !Number.isInteger(x.n)) continue;
+      const r = rec(x.book, x.n); if (!r.r) { r.r = x.at || Date.now(); n++; }
+      P.last[x.book] = x.n; P.dirty[x.book + "|" + x.n] = 1;
+    }
+    if (list.length) { saveP(); if (n) toast(t("carRead", { n }), "ok"); }
   }
 
   /* ---------------- progression ---------------- */
@@ -308,6 +370,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   /* ---------------- rendu ---------------- */
   async function render(el, hash = location.hash) {
     root = el;
+    carProgress();
     const parts = hash.replace(/^#\/?/, "").split("/").slice(1).map(decodeURIComponent);
     const [id, nStr, sub] = parts;
     if (!(id && nStr)) stop();
@@ -406,6 +469,10 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
             ${canDl ? `<div class="row"><button class="btn btn-ghost btn-sm" id="bk-resplit">✂ ${esc(t("resplit"))}</button>
               <input type="file" id="bk-up-inp" accept="${src.ACCEPT}" hidden></div>` : ""}
           </div>` : ""}
+          ${car() ? (() => { const v = carVersion(b), fresh = v && v === String(b.version || "");
+            return `<div class="row bk-car">${v ? `<span class="bk-dl-ok mono">🚗 ${esc(t("carIn"))}${fresh ? " ✓" : ""}</span>` : ""}
+              ${fresh ? "" : `<button class="btn btn-ghost btn-sm" id="bk-car" ${canDl || downloaded(b) ? "" : "disabled"}>🚗 ${esc(v ? t("carUpd") : t("car"))}</button>`}
+              ${v ? `<button class="btn btn-ghost btn-xs" id="bk-car-rm">${esc(t("carRm"))}</button>` : ""}</div>`; })() : ""}
           ${canDl ? `<p class="bk-del-row"><button class="btn btn-ghost btn-sm bk-del" id="bk-del">🗑 ${esc(t("del"))}</button></p>` : ""}
         </div>
       </header>
@@ -428,6 +495,17 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     };
     const del = root.querySelector("#bk-del");
     if (del) del.onclick = () => confirmDelete(b);
+    const cb = root.querySelector("#bk-car");
+    if (cb) cb.onclick = async () => {
+      cb.disabled = true;
+      try {
+        await sendToCar(b, (i, n) => { cb.textContent = "⏳ " + t("carBusy", { i, n }); });
+        toast(t("carOk", { t: pick(b, "title", uiLang()) }), "ok");
+      } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
+      renderBook(b);
+    };
+    const cr = root.querySelector("#bk-car-rm");
+    if (cr) cr.onclick = () => { try { car().removeBook(b.id); toast(t("carRmOk"), "ok"); } catch { /* */ } renderBook(b); };
     if (upl(b)) bookSource(b);
   }
 
