@@ -1,9 +1,9 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
-  "apk": "splunk-training-v1.5.apk",
+  "versionCode": 7,
+  "versionName": "1.6",
+  "apk": "splunk-training-v1.6.apk",
   "notes": {
-    "fr": "Nouvel onglet Suivi : tout le planning de formation (planning, progression, examens, budget, ressources) dans l'appli, avec le même compte.",
-    "en": "New Tracker tab: the whole training plan (schedule, progress, exams, budget, resources) in the app, with the same account."
+    "fr": "Nouvel onglet Books : lis tes livres chapitre par chapitre en français ou en anglais, écoute-les à voix haute et fais le quiz de fin de chapitre.",
+    "en": "New Books tab: read your books chapter by chapter in English or French, listen to them aloud and take the end-of-chapter quiz."
   }
 }
