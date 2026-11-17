@@ -806,3 +806,35 @@ body.bk-playing .footer { padding-bottom: 96px; }
 .bk-lib a.btn, .bk-book a.btn, .bk-reader a.btn, .bk-quiz a.btn { text-decoration: none; }
 .bk-card .btn { max-width: 100%; white-space: normal; text-align: center; line-height: 1.3; }
 .bk-notes code { word-break: break-word; }
+
+/* Import d'un cours PDF / EPUB dans Books */
+.bk-up-cta { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
+.bk-up-cta h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.bk-up-cta p { margin: 0; font-size: .88rem; max-width: 560px; }
+.bk-badge { display: inline-block; margin: 0 0 10px; padding: 2px 8px; border-radius: 999px; font-size: .7rem; letter-spacing: .04em;
+  border: 1px solid var(--line); color: var(--muted); }
+.bk-src { margin-top: 14px; }
+.bk-src-info { margin: 0 0 8px; font-size: .8rem; word-break: break-word; }
+.bk-del.armed { border-color: var(--red); color: var(--red); }
+.bk-up-busy { max-width: 560px; margin: 40px auto; }
+.bk-up-busy .bar { margin: 12px 0; }
+.bk-up-busy p { margin: 0; word-break: break-word; }
+.bk-up-form { display: flex; gap: 18px; align-items: flex-start; }
+.bk-up-form .bk-cover { flex: none; }
+.bk-up-fields { flex: 1; min-width: 0; display: grid; gap: 12px; }
+.bk-up-f { display: grid; gap: 4px; min-width: 0; }
+.bk-up-f span { font-size: .75rem; }
+.bk-up-f input, .bk-up-f select { width: 100%; max-width: 100%; }
+.bk-up-sel { gap: 12px; align-items: flex-start; }
+.bk-up-sel .bk-up-f { flex: 1 1 200px; }
+.bk-up-note { font-size: .82rem; margin: 12px 0; }
+.bk-up-list small { font-size: .8em; }
+.bk-up-acts { gap: 10px; margin-top: 16px; }
+.seg-lab { align-self: center; padding: 0 8px 0 6px; font-size: .72rem; }
+@media (max-width: 640px) {
+  .bk-up-form { flex-direction: column; align-items: center; }
+  .bk-up-fields { width: 100%; }
+  .bk-up-acts { position: sticky; bottom: calc(76px + var(--safe-b, 0px)); z-index: 5; padding: 10px; margin: 16px -10px 0; border-radius: 16px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .bk-up-acts .btn { flex: 1; justify-content: center; }
+}

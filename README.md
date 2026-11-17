@@ -89,6 +89,19 @@ python3 tools/book_build.py private/books/<id>.json --cover couverture.jpg   # -
 
 Puis, dans l'appli : onglet Books, « Ajouter un livre (.book.json) ». En mode local, le site lit `private/books/index.json` et les fichiers `.book.json` du même dossier.
 
+### Importer ses propres cours (PDF ou EPUB)
+
+Bouton « Importer un cours (PDF ou EPUB) » de l'onglet Books (site et appli). Tout se passe sur l'appareil (`js/doc-import.js`) :
+
+- **EPUB** : sommaire du livre (nav EPUB 3 ou toc.ncx), à défaut les titres h1/h2 du texte, à défaut un chapitre par fichier ;
+- **PDF** : signets du fichier, à défaut les titres repérés (grande police, « Chapitre 3 »…), à défaut des tranches de 5, 10 ou 20 pages. En-têtes, pieds et numéros de page sont retirés. Un PDF scanné (sans texte) est refusé.
+
+Un écran de vérification montre les chapitres trouvés : titre, auteur, langue de la voix et mode de découpage sont modifiables. Le texte est ensuite enregistré dans les mêmes tables privées (`source` = `upload:pdf:fr`…), sans quiz. Le livre se lit et s'écoute comme les autres, et peut être redécoupé ou supprimé depuis sa page.
+
+Le fichier d'origine reste sur l'appareil (`js/doc-files.js`) : dans l'appli Android, il est recopié dans un dossier privé de l'appli ; sur PC sous Chrome ou Edge, un lien vers le fichier du disque est gardé (un navigateur ne donne jamais le chemin d'un fichier, le lien se rouvre tant que le fichier n'est ni déplacé ni renommé) ; sur les autres navigateurs, une copie est gardée dans le navigateur.
+
+pdf.js (Apache-2.0) et JSZip (MIT) sont dans `vendor/`, chargés seulement au moment d'un import, et embarqués dans l'APK pour marcher hors ligne.
+
 ## Modifier ou ajouter des questions
 
 Éditez `private/questions.json` ou `private/practice.json` (champs `q`, `opts`, `ans`, `exp` en anglais ; `q_fr`, `opts_fr`, `exp_fr` en français), puis :
