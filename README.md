@@ -102,10 +102,11 @@ Le fichier d'origine reste sur l'appareil (`js/doc-files.js`) : dans l'appli And
 
 pdf.js (Apache-2.0) et JSZip (MIT) sont dans `vendor/`, chargés seulement au moment d'un import, et embarqués dans l'APK pour marcher hors ligne.
 
-## Télé et voiture (appli 2.0)
+## Télé et voiture
 
 - **Télé (Android TV)** : la même APK s'installe sur une télé Android TV et apparaît sur son écran d'accueil. Sur une télé, l'appli le signale au site (`SplunkTV/1` dans le user-agent) et `js/tv.js` active le mode télécommande : flèches pour passer d'un bouton à l'autre (ou faire défiler un long chapitre), OK pour valider, focus bien visible, texte plus grand. L'import de fichiers est masqué sur la télé. Pour essayer ce mode sur un PC : ajouter `?tv=1` à l'adresse du site.
-- **Voiture** : il n'y a pas d'écran Android Auto (réservé aux applis du Play Store). À la place, l'écoute d'un livre continue écran éteint ou appli en arrière-plan : notification et écran verrouillé avec lecture/pause et phrase précédente/suivante, boutons Bluetooth du casque ou du volant, titre du chapitre affiché sur l'écran de la voiture, pause pendant un appel et reprise après une annonce GPS. Dans les réglages de lecture, « Enchaîner automatiquement le chapitre suivant » (activé par défaut dans l'appli) fait passer d'un chapitre à l'autre sans toucher le téléphone.
+- **Voiture (Android Auto, appli 2.1)** : sur la page d'un livre, dans l'appli, le bouton « Écouter dans la voiture » confie le texte du livre, découpé en phrases sur le téléphone, à l'appli (pont `AndroidCar`). Android Auto affiche alors la liste des livres, puis leurs chapitres. La voix du téléphone les lit sans réseau et sans que la page soit ouverte. ⏮ / ⏭ changent de chapitre, deux boutons avancent ou reculent d'une phrase, la position est gardée et les chapitres s'enchaînent. Les chapitres écoutés jusqu'au bout sont marqués comme lus à la prochaine ouverture de l'appli. Comme l'APK ne vient pas du Play Store, il faut activer « Sources inconnues » dans les réglages développeur d'Android Auto.
+- **Écran éteint / Bluetooth (appli 2.0)** : dans l'appli, l'écoute d'un livre continue aussi écran éteint ou en arrière-plan. La notification et l'écran verrouillé affichent lecture/pause et phrase précédente/suivante, et les boutons du casque ou du volant fonctionnent. La lecture se met en pause pendant un appel et reprend après une annonce GPS. Le réglage « Enchaîner automatiquement le chapitre suivant » passe d'un chapitre à l'autre.
 
 ## Modifier ou ajouter des questions
 
