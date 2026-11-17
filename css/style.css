@@ -878,3 +878,16 @@ body.bk-playing .footer { padding-bottom: 96px; }
 .brand-ver { align-self: center; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted);
   font-family: var(--mono); font-size: .68rem; font-weight: 600; letter-spacing: 0; line-height: 1.4; white-space: nowrap; }
 .brand-ver[hidden] { display: none; }
+
+/* ---------- Mode télé (Android TV) : télécommande, lecture à 3 m ---------- */
+html.tv { font-size: 118%; }
+html.tv body { padding: 0 2.5vw; }                      /* marge de sécurité des téléviseurs (overscan) */
+html.tv :focus { outline: 3px solid var(--cyan) !important; outline-offset: 3px; box-shadow: 0 0 0 7px color-mix(in srgb, var(--cyan) 28%, transparent) !important; }
+html.tv .opt:focus, html.tv .bk-opt:focus, html.tv .bk-toc-row:focus { transform: scale(1.02); }
+html.tv .bk-content { font-size: calc(1.15rem * var(--bk-font, 1)); line-height: 1.75; max-width: 70ch; }
+html.tv .bk-say { scroll-margin: 30vh; }
+html.tv .bk-up-cta, html.tv .bk-imp { display: none; }   /* pas d'import de fichier depuis une télé */
+.bk-set-chain { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: .9rem; cursor: pointer; }
+.bk-set-chain input { width: 18px; height: 18px; accent-color: var(--cyan); }
+html.tv .bk-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 540px), 1fr)); }
+html.tv .bk-card .btn { white-space: normal; }
