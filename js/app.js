@@ -2,6 +2,7 @@ import { SupabaseStore, LocalStore, latestByQuestion } from "./store.js";
 import { t, getLang, setLang, locale } from "./i18n.js";
 import { offlineEnabled, registerSW, unregisterSW, autonomous, setAutonomous } from "./offline.js";
 import { createSuivi } from "./suivi.js";
+import { createBooks } from "./books.js";
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
 const IN_APP = !!window.AndroidTTS;
@@ -136,6 +137,25 @@ function speakAnswer(q, btn, lang = "en", mode = "all") {
   u.onend = u.onerror = done;
   speechSynthesis.speak(u);
 }
+/** Lecture d'un texte libre (onglet Books) : langue, vitesse, et rappel à la fin de la lecture. */
+function speakText(text, lang = "en", rate = 1, done = () => {}) {
+  if (!canSpeak) return done();
+  if (nativeTTS) {
+    window.__ttsDone = done;
+    if (typeof nativeTTS.setRate === "function") nativeTTS.setRate(rate);
+    if (lang === "fr" && canSpeakFr) nativeTTS.speakLang(text, "fr-FR"); else nativeTTS.speak(text);
+    return;
+  }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang === "fr" ? "fr-FR" : "en-US"; u.rate = rate;
+  const v = lang === "fr" ? pickVoiceFr() : pickVoice();
+  if (v) u.voice = v;
+  u.onend = () => done();
+  u.onerror = e => { if (e.error !== "interrupted" && e.error !== "canceled") done(); };
+  speechSynthesis.speak(u);
+}
+const TTS = { can: canSpeak, canFr: canSpeakFr, speak: speakText, stop: () => { if (nativeTTS) nativeTTS.stop(); else if (canSpeak) speechSynthesis.cancel(); } };
 /**
  * Bouton de lecture, dans la langue affichée (français : « Lire… », anglais : « Listen… »).
  *  kind "all"    : « Lire tout » à côté de la question (question + propositions, puis réponse et explication
@@ -224,6 +244,7 @@ function rerender() {
   if (state.view === "results" && state.lastResult) return renderResults();
   if (state.view === "history") return renderHistory();
   if (state.view === "suivi") return renderSuiviView();
+  if (state.view === "books") return renderBooksView();
   if (state.view === "home") return renderHome();
 }
 
@@ -237,6 +258,16 @@ function renderSuiviView() {
   state.view = "suivi";
   suivi().render(app);
 }
+// ------------------------------------------------------------------ onglet Books (livres : lecture, audio, quiz)
+function books() {
+  if (!state.books) state.books = createBooks({ store: state.store, getLang, esc, toast, userId: () => state.session?.user?.id, tts: TTS });
+  return state.books;
+}
+function renderBooksView() {
+  stopTimer();
+  state.view = "books";
+  books().render(app, location.hash);
+}
 /** Barre de navigation principale (Entraînement / Suivi / Historique) : onglet actif, masquée pendant un quiz. */
 function paintNav() {
   const nav = document.getElementById("main-nav"); if (!nav) return;
@@ -244,11 +275,11 @@ function paintNav() {
   nav.hidden = !logged;
   document.body.classList.toggle("has-nav", logged && state.view !== "quiz");
   document.body.classList.toggle("in-quiz", state.view === "quiz");
-  const cur = state.view === "suivi" ? "suivi" : state.view === "history" ? "history" : "home";
+  const cur = ["suivi", "history", "books"].includes(state.view) ? state.view : "home";
   nav.querySelectorAll("[data-main]").forEach(a => {
     a.setAttribute("aria-current", a.dataset.main === cur ? "page" : "false");
-    const k = { home: "nav.train", suivi: "nav.suivi", history: "nav.history" }[a.dataset.main];
-    const lab = a.querySelector("span"); if (lab) lab.textContent = getLang() === "fr" ? { "nav.train": "Entraînement", "nav.suivi": "Suivi", "nav.history": "Historique" }[k] : { "nav.train": "Practice", "nav.suivi": "Tracker", "nav.history": "History" }[k];
+    const k = { home: "nav.train", suivi: "nav.suivi", history: "nav.history", books: "nav.books" }[a.dataset.main];
+    const lab = a.querySelector("span"); if (lab) lab.textContent = getLang() === "fr" ? { "nav.train": "Entraînement", "nav.suivi": "Suivi", "nav.history": "Historique", "nav.books": "Books" }[k] : { "nav.train": "Practice", "nav.suivi": "Tracker", "nav.history": "History", "nav.books": "Books" }[k];
   });
 }
 
@@ -304,6 +335,7 @@ async function boot() {
   document.getElementById("btn-logout").addEventListener("click", async () => {
     stopTimer(); await state.store.signOut(); unregisterSW(); state.session = null; state.chapters = [];
     if (state.suivi) { state.suivi.forget(); state.suivi = null; }   // le suivi d'un compte ne reste pas sur l'appareil
+    if (state.books) { state.books.forget(); state.books = null; }
     renderLogin(); paintNav();
   });
   window.addEventListener("hashchange", route);
@@ -348,6 +380,7 @@ async function start() {
     }
     await refreshProgress();
     suivi().sync(true);
+    books().sync();
     applyStaticTexts();
     // Application Android : tout est téléchargé automatiquement pour pouvoir réviser hors ligne.
     if (IN_APP && state.store.kind === "supabase" && !state.store.offline && !offlineEnabled()) {
@@ -440,6 +473,7 @@ async function refreshProgress() {
 
 function route() {
   stopSpeak();
+  if (state.books) state.books.stop();
   setTimeout(paintNav, 0);
   if (!state.session || !state.chapters.length) return;
   const h = location.hash.replace(/^#\/?/, "");
@@ -452,6 +486,7 @@ function route() {
   if (h === "results" && state.lastResult) return renderResults();
   if (h === "history") return renderHistory();
   if (h === "suivi") return renderSuiviView();
+  if (h === "books" || h.startsWith("books/")) return renderBooksView();
   renderHome();
 }
 const go = h => { if (location.hash === `#/${h}`) route(); else location.hash = `#/${h}`; };
