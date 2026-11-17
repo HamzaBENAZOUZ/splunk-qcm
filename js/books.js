@@ -7,6 +7,7 @@
 // et effacés à la déconnexion. La progression (chapitres lus, meilleur score aux quiz) est gardée sur
 // l'appareil et synchronisée avec la table splunk_book_progress.
 import { idbGet, idbSet, isNetErr, withTimeout } from "./offline.js";
+import * as src from "./doc-files.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
 const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:";
@@ -31,6 +32,20 @@ const L = {
     synced: "Progression synchronisée", by: "par",
     imp: "Ajouter un livre (.book.json)", impBusy: "Import… {i}/{n} chapitres", impOk: "Livre « {t} » ajouté à ta bibliothèque",
     badFile: "Ce fichier n'est pas un livre préparé pour l'appli (.book.json).",
+    up: "Importer un cours (PDF ou EPUB)", upHint: "Le fichier est découpé en chapitres sur cet appareil, puis le texte est enregistré dans ton compte (privé).",
+    upRead: "Lecture du fichier… page {i}/{n}", upReadE: "Lecture du fichier… {i}/{n}", upLoad: "Chargement du lecteur PDF / EPUB…",
+    upTitle: "Vérifie le découpage", upName: "Titre", upAuthor: "Auteur", upVoice: "Langue de la voix", upSplit: "Découpage",
+    upSave: "Enregistrer dans ma bibliothèque", upCancel: "Annuler", upSaving: "Enregistrement… {i}/{n} chapitres", upOk: "« {t} » est dans ta bibliothèque",
+    m_toc: "sommaire du livre", m_files: "un chapitre par fichier du livre (pas de sommaire)", m_outline: "signets du PDF",
+    m_headings: "titres repérés dans le texte", m_pages5: "toutes les 5 pages", m_pages10: "toutes les 10 pages", m_pages20: "toutes les 20 pages",
+    min: "min", upNote: "Les images et tableaux complexes ne sont pas repris : seul le texte est gardé.",
+    badType: "Ce fichier n'est ni un PDF ni un EPUB.", badEpub: "Cet EPUB est illisible ou abîmé.",
+    noText: "Aucun texte trouvé : c'est sans doute un PDF scanné (des images de pages), qui ne peut pas être lu à voix haute.",
+    front: "Début du document", part: "partie", pages: "Pages", section: "Section",
+    imported: "Importé", srcFile: "Fichier d'origine", srcApp: "copie gardée dans l'appli", srcHandle: "lien vers le fichier sur ce PC",
+    srcCopy: "copie gardée dans ce navigateur", srcNone: "pas sur cet appareil", resplit: "Redécouper le fichier",
+    srcGone: "Le fichier d'origine n'est plus disponible ici (déplacé, renommé ou importé depuis un autre appareil). Choisis-le à nouveau.",
+    del: "Supprimer ce livre", delSure: "Confirmer la suppression", delOk: "Livre supprimé", voice: "Voix",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -50,6 +65,20 @@ const L = {
     synced: "Progress synced", by: "by",
     imp: "Add a book (.book.json)", impBusy: "Importing… {i}/{n} chapters", impOk: "“{t}” added to your library",
     badFile: "This file is not a book prepared for the app (.book.json).",
+    up: "Import a course (PDF or EPUB)", upHint: "The file is split into chapters on this device, then the text is saved to your (private) account.",
+    upRead: "Reading the file… page {i}/{n}", upReadE: "Reading the file… {i}/{n}", upLoad: "Loading the PDF / EPUB reader…",
+    upTitle: "Check the chapters", upName: "Title", upAuthor: "Author", upVoice: "Voice language", upSplit: "Split by",
+    upSave: "Save to my library", upCancel: "Cancel", upSaving: "Saving… {i}/{n} chapters", upOk: "“{t}” is in your library",
+    m_toc: "the book's table of contents", m_files: "one chapter per file in the book (no table of contents)", m_outline: "PDF bookmarks",
+    m_headings: "headings found in the text", m_pages5: "every 5 pages", m_pages10: "every 10 pages", m_pages20: "every 20 pages",
+    min: "min", upNote: "Images and complex tables are left out: only the text is kept.",
+    badType: "This file is neither a PDF nor an EPUB.", badEpub: "This EPUB is unreadable or damaged.",
+    noText: "No text found: this is probably a scanned PDF (page images), which cannot be read aloud.",
+    front: "Start of the document", part: "part", pages: "Pages", section: "Section",
+    imported: "Imported", srcFile: "Original file", srcApp: "copy kept in the app", srcHandle: "link to the file on this PC",
+    srcCopy: "copy kept in this browser", srcNone: "not on this device", resplit: "Split the file again",
+    srcGone: "The original file is no longer available here (moved, renamed or imported from another device). Pick it again.",
+    del: "Delete this book", delSure: "Confirm deletion", delOk: "Book deleted", voice: "Voice",
   },
 };
 
@@ -66,6 +95,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   let root = null, pushTimer = null, busy = false;
   let player = null;              // { segs, i, playing, token, lang }
   let quizState = null;
+  let draft = null;               // import PDF / EPUB en cours de vérification
 
   const uiLang = () => (getLang() === "en" ? "en" : "fr");
   const t = (k, v) => { let s = L[uiLang()][k] ?? k; if (v) for (const x in v) s = s.replace(`{${x}}`, v[x]); return s; };
@@ -73,6 +103,9 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   const savePrefs = () => wrj(PREF, prefs);
   const remote = () => store && store.kind === "supabase" && store.sb && userId();
   const pick = (o, k, lang = cLang()) => (lang === "fr" && o[k + "_fr"]) || o[k] || "";
+  // Livre importé depuis un PDF / EPUB : source « upload:pdf:fr » (type de fichier, langue du texte)
+  const upl = b => { const m = /^upload:(\w+):(\w+)/.exec((b && b.source) || ""); return m ? { kind: m[1], lang: m[2] } : null; };
+  const voiceOf = b => (prefs.voice && prefs.voice[b.id]) || upl(b).lang;
 
   /* ---------------- données ---------------- */
   async function fetchLocal() {
@@ -93,7 +126,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     if (!store.offline) {
       try {
         const { data, error } = await withTimeout(store.sb.from(T_BOOKS)
-          .select("id,title,title_fr,subtitle,subtitle_fr,author,cover,position,toc,updated_at").order("position"), 15000);
+          .select("id,title,title_fr,subtitle,subtitle_fr,author,source,cover,position,toc,updated_at").order("position"), 15000);
         if (error) throw error;
         lib = (data || []).map(({ toc, ...b }) => ({ ...b, chapters: toc || [], version: b.updated_at }));
         idbSet("books:lib", lib).catch(() => {});
@@ -138,9 +171,14 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     if (!b || typeof b.id !== "string" || !/^[a-z0-9][a-z0-9-]{0,80}$/.test(b.id) || !Array.isArray(b.chapters) || !b.chapters.length || !b.title)
       throw new Error(t("badFile"));
     for (const c of b.chapters) if (!Number.isInteger(c.n) || !c.title || !c.html_en) throw new Error(t("badFile"));
+    return uploadBook(b, onStep);
+  }
+  /** Enregistre un livre complet (fiche + chapitres) dans les tables privées de l'utilisateur. */
+  async function uploadBook(b, onStep) {
     const toc = b.chapters.map(({ n, section, section_fr, title, title_fr }) => ({ n, section, section_fr, title, title_fr }));
     const row = { id: b.id, title: b.title, title_fr: b.title_fr || null, subtitle: b.subtitle || null, subtitle_fr: b.subtitle_fr || null,
       author: b.author || null, source: b.source || null, cover: b.cover || null, toc, updated_at: new Date().toISOString() };
+    if (b.position != null) row.position = b.position;
     const { error } = await store.sb.from(T_BOOKS).upsert(row, { onConflict: "id" });
     if (error) throw error;
     const rows = b.chapters.map(c => ({ book_id: b.id, n: c.n, section: c.section || null, section_fr: c.section_fr || null, title: c.title,
@@ -156,6 +194,17 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     if (gone.length) await store.sb.from(T_CH).delete().eq("book_id", b.id).in("n", gone);
     lib = null; mem.clear();
     return b;
+  }
+  /** Supprime un livre importé (fiche, chapitres et progression en cascade) et son fichier d'origine gardé ici. */
+  async function deleteBook(b) {
+    const { error } = await store.sb.from(T_BOOKS).delete().eq("id", b.id);
+    if (error) throw error;
+    await src.remove(userId(), b.id);
+    delete P.books[b.id]; delete P.last[b.id];
+    for (const k of Object.keys(P.pos)) if (k.startsWith(b.id + "|")) delete P.pos[k];
+    for (const k of Object.keys(P.dirty)) if (k.startsWith(b.id + "|")) delete P.dirty[k];
+    wrj(PKEY, P); wrj(DL + b.id, null);
+    lib = null; mem.clear();
   }
 
   /* ---------------- progression ---------------- */
@@ -263,14 +312,21 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
           <div class="bk-card-body">
             <h2><a href="#/books/${encodeURIComponent(b.id)}">${esc(pick(b, "title", uiLang()))}</a></h2>
             ${b.author ? `<p class="muted bk-author">${esc(t("by"))} ${esc(b.author)}</p>` : ""}
+            ${upl(b) ? `<p class="bk-badge mono">${esc(upl(b).kind.toUpperCase())} · ${esc(t("imported"))}</p>` : ""}
             <div class="bar bk-bar"><span style="width:${Math.round(p * 100)}%"></span></div>
             <p class="muted mono bk-meta">${s.read}/${s.total} ${esc(t("chapters"))} ${esc(t("read"))}${s.avg != null ? ` · ${s.avg} % ${esc(t("quizAvg"))}` : ""}</p>
             <a class="btn btn-primary btn-sm" href="#/books/${encodeURIComponent(b.id)}/${n}">${esc(s.read || P.last[b.id] ? t("cont") : t("start"))} · ${esc(t("chapter"))} ${n}</a>
           </div></article>`;
       }).join("")}</div>` : `<section class="panel"><p class="muted">${esc(t("empty"))}</p></section>`}
+      ${store.kind === "supabase" && !store.offline ? `<section class="panel bk-up-cta">
+        <div><h2>📄 ${esc(t("up"))}</h2><p class="muted">${esc(t("upHint"))}</p></div>
+        <button class="btn btn-primary" id="bk-up">${esc(t("up"))}</button>
+        <input type="file" id="bk-up-inp" accept="${src.ACCEPT}" hidden></section>` : ""}
       ${store.kind === "supabase" && !store.offline ? `<p class="bk-imp"><label class="btn btn-ghost btn-sm">📚 ${esc(t("imp"))}
         <input type="file" id="bk-imp" accept=".json,application/json" hidden></label></p>` : ""}
     </div>`;
+    const upBtn = root.querySelector("#bk-up");
+    if (upBtn) upBtn.onclick = () => startUpload(root.querySelector("#bk-up-inp")).catch(e => { console.error(e); toast(e.message || String(e), "err"); });
     const inp = root.querySelector("#bk-imp");
     if (inp) inp.onchange = async () => {
       const f = inp.files && inp.files[0]; if (!f) return;
@@ -309,6 +365,12 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
               ? `<span class="bk-dl-ok mono">✓ ${esc(t("dlDone"))}</span>`
               : `<button class="btn btn-ghost btn-sm" id="bk-dl" ${canDl ? "" : "disabled"}>📥 ${esc(t("dl"))}</button>`) : ""}
           </div>
+          ${upl(b) ? `<div class="bk-src">
+            <p class="muted mono bk-src-info">${esc(upl(b).kind.toUpperCase())} · ${esc(t("srcFile"))} : <span id="bk-src-name">…</span></p>
+            ${canDl ? `<div class="row"><button class="btn btn-ghost btn-sm" id="bk-resplit">✂ ${esc(t("resplit"))}</button>
+              <button class="btn btn-ghost btn-sm bk-del" id="bk-del">🗑 ${esc(t("del"))}</button>
+              <input type="file" id="bk-up-inp" accept="${src.ACCEPT}" hidden></div>` : ""}
+          </div>` : ""}
         </div>
       </header>
       <h2 class="bk-toc-title mono">${esc(t("toc"))}</h2>
@@ -328,15 +390,135 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       try { await downloadBook(b); toast(t("dlOk"), "ok"); } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
       renderBook(b);
     };
+    if (upl(b)) bookSource(b);
+  }
+
+  /* ---------------- import d'un cours PDF / EPUB ---------------- */
+  /** Fichier d'origine d'un livre importé : où il est gardé, redécoupage, suppression du livre. */
+  async function bookSource(b) {
+    const uid = userId(), r = await src.info(uid, b.id);
+    const nm = root.querySelector("#bk-src-name"); if (!nm) return;
+    nm.textContent = r ? `${r.name} (${t({ app: "srcApp", handle: "srcHandle", copy: "srcCopy" }[r.kind] || "srcNone")})` : t("srcNone");
+    let known = !!r;
+    const rs = root.querySelector("#bk-resplit"), inp = root.querySelector("#bk-up-inp");
+    if (rs) rs.onclick = async () => {
+      try {
+        if (!known) return await startUpload(inp, b);
+        let file;
+        try { file = await src.open(uid, b.id); }
+        catch (e) { if (e.code !== "gone") throw e; known = false; nm.textContent = t("srcNone"); toast(t("srcGone"), "warn"); return; }
+        await startUpload(inp, b, { file, keep: null });
+      } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
+    };
+    const del = root.querySelector("#bk-del");
+    if (del) del.onclick = async () => {
+      if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "⚠ " + t("delSure"); return; }
+      del.disabled = true;
+      try { await deleteBook(b); toast(t("delOk"), "ok"); location.hash = "#/books"; }
+      catch (e) { console.error(e); toast(e.message || String(e), "err"); del.disabled = false; }
+    };
+  }
+
+  const slug = s => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "cours";
+  const minutes = c => Math.max(1, Math.round(c.blocks.reduce((a, x) => a + x.x.length, 0) / 1000));
+
+  /** Choix du fichier, lecture et découpage (sur l'appareil), puis écran de vérification. replace : livre à redécouper. */
+  async function startUpload(input, replace = null, given = null) {
+    const picked = given || await src.pickFile(input);
+    if (!picked) return;
+    stop();
+    root.innerHTML = `<div class="bk-up"><section class="panel bk-up-busy">
+      <p class="mono" id="bk-up-msg">⏳ ${esc(t("upLoad"))}</p><div class="bar"><span id="bk-up-bar" style="width:0%"></span></div>
+      <p class="muted mono">${esc(picked.file.name)}</p></section></div>`;
+    window.scrollTo(0, 0);
+    try {
+      const mod = await import("./doc-import.js");
+      const res = await mod.parseDocument(picked.file, (i, n) => {
+        const m = root.querySelector("#bk-up-msg"), bar = root.querySelector("#bk-up-bar");
+        if (m) m.textContent = "⏳ " + t("upReadE", { i, n });
+        if (bar) bar.style.width = Math.round((i / n) * 100) + "%";
+      }, t);
+      const u = replace && upl(replace);
+      draft = { res, picked, replace, html: mod.blocksToHtml, mode: res.method, chapters: res.chapters,
+        title: replace ? replace.title : res.title, author: replace ? replace.author || "" : res.author || "", lang: u ? u.lang : res.lang };
+      renderDraft();
+    } catch (e) {
+      console.error(e); toast(e.message || String(e), "err");
+      if (replace) renderBook(replace); else renderLib();
+    }
+  }
+
+  function renderDraft() {
+    const d = draft; if (!d) return renderLib();
+    const chs = d.chapters;
+    root.innerHTML = `<div class="bk-up">
+      <p class="bk-crumbs mono"><a href="#/books">← ${esc(t("lib"))}</a></p>
+      <header class="bk-head"><div><p class="kicker mono">// import ${esc(d.res.kind)}</p><h1>${esc(t("upTitle"))}</h1>
+        <p class="muted bk-sub">${esc(d.picked.file.name)} · ${chs.length} ${esc(t("chapters"))}</p></div></header>
+      <section class="panel bk-up-form">
+        ${d.res.cover ? `<img class="bk-cover" src="${esc(d.res.cover)}" alt="">` : ""}
+        <div class="bk-up-fields">
+          <label class="bk-up-f"><span class="mono muted">${esc(t("upName"))}</span><input id="bk-up-title" maxlength="200" value="${esc(d.title)}"></label>
+          <label class="bk-up-f"><span class="mono muted">${esc(t("upAuthor"))}</span><input id="bk-up-author" maxlength="200" value="${esc(d.author)}"></label>
+          <div class="row bk-up-sel">
+            <label class="bk-up-f"><span class="mono muted">${esc(t("upVoice"))}</span><select id="bk-up-lang">
+              <option value="fr" ${d.lang === "fr" ? "selected" : ""}>Français</option><option value="en" ${d.lang === "en" ? "selected" : ""}>English</option></select></label>
+            <label class="bk-up-f"><span class="mono muted">${esc(t("upSplit"))}</span>${d.res.split
+              ? `<select id="bk-up-mode">${d.res.modes.map(m => `<option value="${m}" ${m === d.mode ? "selected" : ""}>${esc(t("m_" + m))}</option>`).join("")}</select>`
+              : `<span class="mono">${esc(t("m_" + d.mode))}</span>`}</label>
+          </div>
+        </div>
+      </section>
+      <p class="muted bk-up-note">${esc(t("upNote"))}</p>
+      <ol class="bk-toc bk-up-list">${chs.map(c => `<li><div class="bk-toc-row">
+        <span class="bk-num mono">${c.n}</span>
+        <span class="bk-toc-t">${c.section ? `<small class="muted">${esc(c.section)} · </small>` : ""}${esc(c.title)}</span>
+        <span class="bk-toc-s mono muted">≈ ${minutes(c)} ${esc(t("min"))}</span></div></li>`).join("")}</ol>
+      <div class="row bk-up-acts"><button class="btn btn-primary" id="bk-up-save">✓ ${esc(t("upSave"))}</button>
+        <button class="btn btn-ghost" id="bk-up-cancel">${esc(t("upCancel"))}</button></div>
+    </div>`;
+    const keepFields = () => {
+      d.title = root.querySelector("#bk-up-title").value; d.author = root.querySelector("#bk-up-author").value;
+      d.lang = root.querySelector("#bk-up-lang").value;
+    };
+    const mode = root.querySelector("#bk-up-mode");
+    if (mode) mode.onchange = () => { keepFields(); d.mode = mode.value; d.chapters = d.res.split(mode.value); renderDraft(); };
+    root.querySelector("#bk-up-cancel").onclick = () => { const r = d.replace; draft = null; if (r) renderBook(r); else renderLib(); };
+    const save = root.querySelector("#bk-up-save");
+    save.onclick = async () => {
+      keepFields();
+      save.disabled = true;
+      const title = d.title.trim() || d.res.title, rep = d.replace;
+      const id = rep ? rep.id : "u-" + slug(title) + "-" + Math.random().toString(36).slice(2, 8);
+      const b = {
+        id, title, author: d.author.trim() || null, source: `upload:${d.res.kind}:${d.lang}`,
+        cover: d.res.cover || (rep && rep.cover) || null, position: rep ? rep.position : 1000 + (lib || []).length,
+        chapters: d.chapters.map(c => ({ n: c.n, title: c.title, section: c.section, html_en: d.html(c.blocks), quiz: [] })),
+      };
+      try {
+        await uploadBook(b, (i, n) => { save.textContent = "⏳ " + t("upSaving", { i, n }); });
+        if (d.picked.keep) await d.picked.keep(userId(), id);
+        if (prefs.voice) { delete prefs.voice[id]; savePrefs(); }
+        draft = null;
+        toast(t("upOk", { t: title }), "ok");
+        await loadLib(true);
+        const target = "#/books/" + encodeURIComponent(id);
+        if (location.hash === target) render(root, target); else location.hash = target;
+      } catch (e) {
+        console.error(e); toast(e.message || String(e), "err");
+        save.disabled = false; save.textContent = "✓ " + t("upSave");
+      }
+    };
+    window.scrollTo(0, 0);
   }
 
   /* ---------------- lecture d'un chapitre ---------------- */
   function renderChapter(b, ch) {
     stop();
-    const lang = cLang(), n = ch.n, i = b.chapters.findIndex(c => c.n === n);
+    const u = upl(b), lang = u ? voiceOf(b) : cLang(), n = ch.n, i = b.chapters.findIndex(c => c.n === n);
     const prev = b.chapters[i - 1], next = b.chapters[i + 1];
     P.last[b.id] = n; wrj(PKEY, P);
-    const r = rec(b.id, n), html = (lang === "fr" && ch.html_fr) || ch.html_en || "";
+    const r = rec(b.id, n), html = (!u && lang === "fr" && ch.html_fr) || ch.html_en || "";
     const notes = ch.notes && (ch.notes[lang] || ch.notes.en);
     const base = `#/books/${encodeURIComponent(b.id)}`;
     const pos = P.pos[b.id + "|" + n] || 0;
@@ -346,10 +528,14 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
         <p class="kicker mono">${esc(pick(ch, "section", lang))}${pick(ch, "section", lang) ? " · " : ""}${esc(t("chapter"))} ${n}/${b.chapters.length}</p>
         <h1 class="bk-ch-title" lang="${lang}">${esc(pick(ch, "title", lang))}</h1>
         <div class="bk-tools">
-          <div class="seg" role="group" aria-label="${esc(t("content"))}">
+          ${u ? `<div class="seg" role="group" aria-label="${esc(t("upVoice"))}" title="${esc(t("upVoice"))}">
+            <span class="seg-lab mono muted">${esc(t("voice"))}</span>
+            <button class="seg-btn mono" data-voice="fr" aria-pressed="${lang === "fr"}">FR</button>
+            <button class="seg-btn mono" data-voice="en" aria-pressed="${lang === "en"}">EN</button>
+          </div>` : `<div class="seg" role="group" aria-label="${esc(t("content"))}">
             <button class="seg-btn mono" data-clang="en" aria-pressed="${lang === "en"}">EN</button>
             <button class="seg-btn mono" data-clang="fr" aria-pressed="${lang === "fr"}" ${ch.html_fr ? "" : "disabled"}>FR</button>
-          </div>
+          </div>`}
           <div class="seg" role="group" aria-label="${esc(t("font"))}">
             <button class="seg-btn mono" data-font="-1" title="${esc(t("font"))}">A−</button>
             <button class="seg-btn mono" data-font="1" title="${esc(t("font"))}">A+</button>
@@ -383,6 +569,9 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
 
     root.querySelectorAll("[data-clang]").forEach(btn => btn.onclick = () => {
       if (btn.disabled) return; prefs.lang = btn.dataset.clang; savePrefs(); renderChapter(b, ch);
+    });
+    root.querySelectorAll("[data-voice]").forEach(btn => btn.onclick = () => {
+      (prefs.voice ||= {})[b.id] = btn.dataset.voice; savePrefs(); renderChapter(b, ch);
     });
     root.querySelectorAll("[data-font]").forEach(btn => btn.onclick = () => {
       prefs.font = Math.min(1.5, Math.max(0.85, Math.round((prefs.font + 0.1 * +btn.dataset.font) * 100) / 100)); savePrefs();

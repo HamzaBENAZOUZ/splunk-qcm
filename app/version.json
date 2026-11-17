@@ -1,9 +1,9 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
-  "apk": "splunk-training-v1.6.apk",
+  "versionCode": 8,
+  "versionName": "1.7",
+  "apk": "splunk-training-v1.7.apk",
   "notes": {
-    "fr": "Nouvel onglet Books : lis tes livres chapitre par chapitre en français ou en anglais, écoute-les à voix haute et fais le quiz de fin de chapitre.",
-    "en": "New Books tab: read your books chapter by chapter in English or French, listen to them aloud and take the end-of-chapter quiz."
+    "fr": "Books : importe tes propres cours PDF ou EPUB. Ils sont découpés en chapitres sur ton téléphone, à lire et à écouter comme les autres livres. Le fichier d'origine est gardé dans l'appli pour pouvoir le redécouper.",
+    "en": "Books: import your own PDF or EPUB courses. They are split into chapters on your phone, to read and listen to like your other books. The original file is kept in the app so you can split it again."
   }
 }
