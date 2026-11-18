@@ -708,7 +708,9 @@ body.in-quiz .main-nav { display: none; }
 .bk-head h1, .bk-hero h1 { margin: 2px 0 6px; font-size: clamp(1.7rem, 4.6vw, 2.6rem); }
 .bk-sub { margin: 0 0 8px; font-size: .92rem; }
 .bk-author { margin: 0 0 10px; font-size: .88rem; }
-.bk-crumbs { font-size: .8rem; margin: 0 0 12px; color: var(--muted); }
+.bk-crumbs { font-size: .8rem; margin: 0 0 12px; color: var(--muted); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bk-crumbs .bk-back { color: var(--text); font-size: .85rem; }
+.bk-crumbs span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bk-crumbs a { color: var(--muted); text-decoration: none; }
 .bk-crumbs a:hover { color: var(--cyan); }
 .bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; margin-top: 18px; }
