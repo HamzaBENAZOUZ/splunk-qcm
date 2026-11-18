@@ -16,7 +16,7 @@ L'examen blanc tire des questions au hasard dans l'onglet actif, avec 1 minute p
 ## Différences avec le site CISSP
 
 - Tous les réglages du navigateur sont préfixés par `splunk-` au lieu de `cissp-`. Les deux sites peuvent donc tourner sur le même `github.io` sans mélanger progression, sauvegardes ni copie hors ligne.
-- Les tables Supabase sont préfixées `splunk_` (projet suivi-splunk depuis la v1.5). Le schéma est le même, sauf que `splunk_chapters.domain` accepte 1 à 20 (thèmes 1-8 pour SPLK-1001, 11-20 pour SPLK-1002).
+- Les tables Supabase sont dans le projet suivi-splunk depuis la v1.5.
 - Numérotation des quiz : `1-9` = modules Packt, `11-18` = questions originales SPLK-1001 (thèmes 1-8), `101-110` = SPLK-1002 (thèmes 1-10, stockés en domain 11-20).
 
 ## Structure
@@ -25,7 +25,6 @@ L'examen blanc tire des questions au hasard dans l'onglet actif, avec 1 minute p
 splunk-qcm/
 ├── index.html, css/, js/, assets/, sw.js   le site (mêmes fichiers que le site CISSP, adaptés)
 ├── js/config.js           ← vos clés Supabase (à remplir)
-├── tools/json_to_sql.py   génère les fichiers d'import SQL (dans private/, jamais publiés)
 └── private/               non publié (ignoré par .gitignore)
     ├── questions.json         SPLK-1001 (221 questions)
     └── practice.json          SPLK-1002 (120 questions)
@@ -42,9 +41,9 @@ python3 -m http.server 8000      # puis ouvrir http://localhost:8000
 
 ## 2. Base Supabase : le projet « suivi-splunk »
 
-Depuis la v1.5 (QCM + onglet Suivi dans une seule appli), le site utilise le projet Supabase **suivi-splunk** (`https://jmmwzrwdavufrzwaigrc.supabase.co`), le même que l'ancien site de suivi : un seul compte pour le QCM et le planning. `js/config.js` contient déjà cette adresse et sa clé publishable. Les tables sont préfixées `splunk_` (`splunk_chapters`, `splunk_questions`, `splunk_attempts`, `splunk_answers`, `splunk_saved_quizzes`, `splunk_flags`, `splunk_suivi`).
+Depuis la v1.5 (QCM + onglet Suivi dans une seule appli), le site utilise le projet Supabase **suivi-splunk** (`https://jmmwzrwdavufrzwaigrc.supabase.co`), le même que l'ancien site de suivi : un seul compte pour le QCM et le planning. `js/config.js` contient déjà cette adresse et sa clé publishable.
 
-Le schéma (tables + RLS) et les 341 questions sont déjà en place dans ce projet. Les fichiers SQL ne sont **jamais** publiés dans ce dépôt (`*.sql` est ignoré) : ils restent hors de GitHub.
+La base et les 341 questions sont déjà en place dans ce projet. Aucun fichier SQL n'est publié dans ce dépôt (`*.sql` est ignoré).
 
 1. **Authentication → URL Configuration** : **ajoutez** `https://hamzabenazouz.github.io/splunk-qcm/` dans *Redirect URLs*.
 
@@ -77,7 +76,7 @@ Avec l'upload web de GitHub (*Add file → Upload files*), déposez le **contenu
 
 L'onglet **Books** affiche les livres de l'utilisateur : lecture chapitre par chapitre en anglais ou en français, écoute à voix haute (paragraphe par paragraphe, vitesse réglable ; dans l'appli Android, via le moteur vocal du téléphone), note de vérification quand le livre contient une erreur, et quiz bilingue de 5 questions à la fin de chaque chapitre. La progression (chapitres lus, meilleur score) est synchronisée.
 
-**Le contenu des livres n'est jamais dans ce dépôt ni dans l'APK** (droit d'auteur) : il est dans les tables Supabase `splunk_books`, `splunk_book_chapters` (lisibles uniquement par leur propriétaire) et `splunk_book_progress`. Le schéma SQL n'est pas publié ici (aucun fichier .sql dans le dépôt).
+**Le contenu des livres n'est jamais dans ce dépôt ni dans l'APK** (droit d'auteur) : il est dans la base Supabase, lisible uniquement par son propriétaire.
 
 Préparer un livre (EPUB ou PDF) :
 
@@ -112,8 +111,4 @@ pdf.js (Apache-2.0) et JSZip (MIT) sont dans `vendor/`, chargés seulement au mo
 
 Éditez `private/questions.json` ou `private/practice.json` (champs `q`, `opts`, `ans`, `exp` en anglais ; `q_fr`, `opts_fr`, `exp_fr` en français), puis :
 
-```bash
-python3 tools/json_to_sql.py
-```
-
-et exécutez le fichier d'import généré dans `private/` (jamais publié) dans le SQL Editor de Supabase. L'import est idempotent : il met à jour les questions sans créer de doublons, et votre progression est conservée.
+puis importez-les dans Supabase avec l'outil d'import gardé hors du dépôt (jamais publié). L'import est idempotent : il met à jour les questions sans créer de doublons, et votre progression est conservée.
