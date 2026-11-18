@@ -1,9 +1,9 @@
 {
-  "versionCode": 15,
-  "versionName": "2.4",
-  "apk": "app/splunk-training-v2.4.apk",
+  "versionCode": 16,
+  "versionName": "2.5",
+  "apk": "app/splunk-training-v2.5.apk",
   "notes": {
-    "fr": "Traduction en français intégrée à l'appli, hors ligne : le moteur de traduction de Mozilla tourne sur le téléphone (modèle téléchargé une seule fois, 26 Mo), sans limite de Google. Chaque chapitre traduit est gardé dans l'appli et n'est plus jamais retraduit, le chapitre suivant est préparé à l'avance, et une traduction interrompue reprend où elle s'était arrêtée. Google en ligne ne sert plus qu'en secours.",
-    "en": "French translation built into the app, offline: Mozilla's translation engine runs on the phone (model downloaded once, 26 MB), with no Google limits. Each translated chapter is kept in the app and never translated again, the next chapter is prepared ahead, and an interrupted translation resumes where it stopped. Google online is only a fallback."
+    "fr": "Temps estimé devant le bouton de lecture des livres : 📖 lecture à l'œil et 🎧 écoute à voix haute (selon ta vitesse de lecture), dans la bibliothèque, sur la page du livre, dans le sommaire et en haut de chaque chapitre. Aussi en mode télé, et dans Android Auto (durée d'écoute de chaque chapitre et du livre).",
+    "en": "Estimated time next to the books' read button: 📖 reading and 🎧 listening (at your speech speed), in the library, on the book page, in the contents and at the top of each chapter. Also in TV mode, and in Android Auto (listening time per chapter and per book)."
   }
 }
