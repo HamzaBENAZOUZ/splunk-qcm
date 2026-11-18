@@ -58,6 +58,9 @@ const L = {
     trBusy: "Traduction du chapitre… {i}/{n}", trDl: "Téléchargement du module de traduction du navigateur… {p} %", trRetry: "Traduire ce chapitre",
     trNo: "Traduction automatique indisponible ici : elle utilise le traducteur intégré de Chrome ou Edge récents sur ordinateur.",
     trErr: "La traduction automatique a échoué", trOff: "Texte original", trSlow: "le navigateur n'a pas répondu",
+    trModel: "Téléchargement du traducteur hors ligne (une seule fois, 26 Mo)… {p} %",
+    trOffline: "Traduction hors ligne sur le téléphone (moteur de Mozilla), gardée dans l'appli : le texte peut contenir des erreurs.",
+    trWait: "Le service de traduction limite les demandes : reprise dans {s} s…",
     trOnline: "Traduction automatique en ligne (service de traduction de Google) : le texte peut contenir des erreurs.",
     trDevice: "Traduction automatique sur le téléphone : le texte peut contenir des erreurs.",
     chain: "Enchaîner automatiquement le chapitre suivant", backLib: "Bibliothèque",
@@ -110,6 +113,9 @@ const L = {
     trBusy: "Translating the chapter… {i}/{n}", trDl: "Downloading the browser's translation model… {p}%", trRetry: "Translate this chapter",
     trNo: "Machine translation is not available here: it uses the built-in translator of recent Chrome or Edge on desktop.",
     trErr: "Machine translation failed", trOff: "Original text", trSlow: "the browser did not respond",
+    trModel: "Downloading the offline translator (only once, 26 MB)… {p}%",
+    trOffline: "Offline translation on the phone (Mozilla engine), kept in the app: the text may contain mistakes.",
+    trWait: "The translation service is limiting requests: resuming in {s} s…",
     trOnline: "Online machine translation (Google's translation service): the text may contain mistakes.",
     trDevice: "Machine translation on the phone: the text may contain mistakes.",
     chain: "Automatically continue with the next chapter", backLib: "Library",
@@ -780,29 +786,57 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     });
   }
 
-  /* ---------------- traduction automatique (navigateur) ---------------- */
-  const trCache = new Map();          // chapitres traduits pendant cette session : { title, html } (jamais enregistrés)
+  /* ---------------- traduction automatique ---------------- */
+  // Moteurs, dans l'ordre :
+  //  - appli Android : traducteur hors ligne intégré (moteur Bergamot de Mozilla en WebAssembly, modèle EN→FR
+  //    téléchargé une fois par l'appli), sinon en secours la traduction de l'appli (Android, puis Google en ligne) ;
+  //  - navigateur : Translator API de Chrome / Edge.
+  // Chaque chapitre traduit est gardé (appli : fichiers de l'appli ; navigateur : IndexedDB) et n'est plus jamais retraduit ;
+  // une traduction interrompue reprend là où elle s'était arrêtée.
+  const trCache = new Map();          // chapitres prêts pendant la session : { title, html, via }
   let trP = null;
-  // Appli Android : la WebView n'a pas la Translator API ; l'appli traduit elle-même (pont AndroidTranslate :
-  // sur le téléphone si Android le propose, sinon en ligne), par paquets de textes.
   const natTr = () => (window.AndroidTranslate && typeof window.AndroidTranslate.translate === "function" ? window.AndroidTranslate : null);
   const trWait = new Map();
   window.__trDone = (id, res, err) => { const w = trWait.get(id); if (!w) return; trWait.delete(id); res ? w.ok(res) : w.ko(new Error(err || "?")); };
   let trSeq = 0;
-  const nativeTranslator = {
+  /** Traduction de l'appli (Android sur l'appareil, sinon Google en ligne). */
+  const appEngine = {
+    via: "online", pack: 9000,
     many(list) {
       const id = "t" + (++trSeq);
       return new Promise((ok, ko) => {
         trWait.set(id, { ok, ko });
-        setTimeout(() => { if (trWait.delete(id)) ko(new Error("timeout")); }, 180000);
+        setTimeout(() => { if (trWait.delete(id)) ko(new Error("timeout")); }, 240000);
         try { natTr().translate(id, JSON.stringify(list)); } catch (e) { trWait.delete(id); ko(e); }
-      });
+      }).then(r => { try { this.via = natTr().via() || "online"; } catch { /* */ } return r; });
     },
-    async translate(s) { return (await this.many([s]))[0]; },
   };
+  /** Traducteur hors ligne (Bergamot) : modèle téléchargé par l'appli, servi à la page sous __models/. */
+  let bgP = null, offlineBroken = false;      // moteur hors ligne en panne sur ce téléphone : secours en ligne pour la session
+  function offlineEngine(onModel) {
+    const A = natTr();
+    if (!A || typeof A.modelState !== "function" || offlineBroken) return Promise.reject(new Error("no offline model"));
+    if (bgP) return bgP;
+    bgP = (async () => {
+      if (A.modelState() !== "ready") {
+        await new Promise((ok, ko) => {
+          window.__trModel = (p, err) => { if (p < 0) ko(new Error(err || "?")); else if (p >= 100) ok(); else onModel && onModel(p); };
+          A.modelDownload();
+        });
+      }
+      const m = await import("../vendor/bergamot/translator.js");
+      const T = new m.BatchTranslator({ registryUrl: "__models/registry.json", workers: 2, batchSize: 16, downloadTimeout: 0, pivotLanguage: null });
+      const eng = {
+        via: "offline", pack: 2500,
+        many: list => Promise.all(list.map(text => T.translate({ from: "en", to: "fr", text, html: false }).then(r => r.target.text))),
+      };
+      await withTimeout(eng.many(["Ready."]), 120000);   // charge le modèle (et vérifie que le moteur marche)
+      return eng;
+    })().catch(e => { bgP = null; if (!/HTTP|fetch|network|Failed/i.test(e.message || "")) offlineBroken = true; throw e; });
+    return bgP;
+  }
   function trSupported() { return !!natTr() || (typeof self !== "undefined" && "Translator" in self && typeof self.Translator.create === "function"); }
-  async function translator(onDl) {
-    if (natTr()) return nativeTranslator;
+  async function browserEngine(onDl) {
     if (trP) return trP;
     const av = await withTimeout(self.Translator.availability({ sourceLanguage: "en", targetLanguage: "fr" }), 8000);
     if (av === "unavailable") throw new Error(t("trNo"));
@@ -813,49 +847,123 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       monitor(m) { m.addEventListener("downloadprogress", e => { last = Date.now(); onDl && onDl(Math.round((e.loaded || 0) * 100)); }); },
     });
     const watchdog = new Promise((_, ko) => { const id = setInterval(() => { if (Date.now() - last > 20000) { clearInterval(id); ko(new Error("timeout")); } }, 1000); create.finally(() => clearInterval(id)); });
-    trP = Promise.race([create, watchdog]).catch(e => { trP = null; throw e; });
+    trP = Promise.race([create, watchdog]).then(tr => ({ via: "browser", pack: 1, many: async list => [await tr.translate(list[0])] }))
+      .catch(e => { trP = null; throw e; });
     return trP;
   }
-  /** Traduit en place le titre et le texte du chapitre affiché (blocs entiers ; le code n'est pas traduit). */
+  /** Moteur à utiliser ; dans l'appli, le hors ligne d'abord, la traduction en ligne en secours. */
+  async function translator(status) {
+    if (!natTr()) return browserEngine(p => status(t("trDl", { p })));
+    try { return await offlineEngine(p => status(t("trModel", { p }))); }
+    catch (e) { console.warn("traducteur hors ligne", e); return appEngine; }
+  }
+  const trNote = via => t(via === "offline" ? "trOffline" : via === "online" ? "trOnline" : via === "device" ? "trDevice" : "trOn");
+
+  // Traductions gardées : { v, via, map: { texte anglais: texte français } } par chapitre
+  const trKey = (b, n) => `${b.id}|${n}`;
+  async function trLoad(key) {
+    try {
+      const A = natTr();
+      if (A && typeof A.load === "function") { const s = A.load(key); return s ? JSON.parse(s) : null; }
+      return (await idbGet("tr:" + key)) || null;
+    } catch { return null; }
+  }
+  async function trSave(key, data) {
+    try {
+      const A = natTr();
+      if (A && typeof A.save === "function") A.save(key, JSON.stringify(data));
+      else await idbSet("tr:" + key, data);
+    } catch { /* stockage plein ou indisponible : la traduction reste affichée */ }
+  }
+  /** Morceaux à traduire d'un chapitre : bloc entier, ou seulement le texte hors code si le contenu est mélangé. */
+  function trJobs(h1, art) {
+    const els = [h1, ...art.querySelectorAll("h3, p, li, td, th, blockquote, dt, dd")].filter(el => el && !el.closest("pre"));
+    const jobs = [];
+    for (const el of els) {
+      if (!el.querySelector("code, ul, ol, table, p")) { const src = el.textContent.replace(/\s+/g, " ").trim(); if (src) jobs.push({ src, put: v => { el.textContent = v; } }); continue; }
+      for (const tn of [...el.childNodes].filter(x => x.nodeType === 3 || (x.nodeType === 1 && /^(a|strong|em|b|i|span)$/i.test(x.tagName)))) {
+        const raw = tn.textContent; if (!raw.trim()) continue;
+        jobs.push({ src: raw.replace(/\s+/g, " ").trim(), put: v => { tn.textContent = (/^\s/.test(raw) ? " " : "") + v + (/\s$/.test(raw) ? " " : ""); } });
+      }
+    }
+    return jobs;
+  }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  /** Traduit les morceaux manquants par paquets, en gardant chaque paquet terminé ; limite de débit : attente puis reprise. */
+  async function trRun(key, jobs, data, status, alive) {
+    let tr = null;
+    const todo = jobs.filter(j => !(j.src in data.map));
+    let k = 0, waits = 0;
+    while (k < todo.length) {
+      if (!alive()) return false;
+      if (!tr) tr = await translator(status);
+      const part = [];
+      for (let len = 0; k + part.length < todo.length && (part.length < 1 || (tr.pack > 1 && len + todo[k + part.length].src.length < tr.pack)); ) {
+        len += todo[k + part.length].src.length; part.push(todo[k + part.length]);
+      }
+      status(t("trBusy", { i: jobs.length - todo.length + k + part.length, n: jobs.length }));
+      let out;
+      try { out = await tr.many(part.map(j => j.src)); }
+      catch (e) {
+        // Google limite le débit (429) : on attend puis on reprend où on en était (rien n'est perdu)
+        if (/429|HTTP 5\d\d|timeout/.test(e.message || "") && waits < 4 && alive()) {
+          const s = (window.__trWaitS || 30) * ++waits;
+          for (let x = s; x > 0 && alive(); x--) { status(t("trWait", { s: x })); await sleep(1000); }
+          continue;
+        }
+        throw e;
+      }
+      if (!alive()) return false;
+      data.via = tr.via;
+      part.forEach((j, x) => { if (typeof out[x] === "string" && out[x].trim()) { data.map[j.src] = out[x]; j.put(out[x]); } });
+      k += part.length;
+      await trSave(key, data);
+    }
+    return true;
+  }
+  /** Traduit en place le titre et le texte du chapitre affiché (le code n'est pas traduit). */
   async function translateChapter(b, ch) {
-    const key = b.id + "|" + ch.n, art = root.querySelector(".bk-content"), h1 = root.querySelector(".bk-ch-title");
+    const key = trKey(b, ch.n), art = root.querySelector(".bk-content"), h1 = root.querySelector(".bk-ch-title");
     const note = root.querySelector("#bk-tr-note");
     h1.dataset.ch = String(ch.n);
+    const status = msg => { if (note && note.isConnected) note.textContent = "🌐 " + msg; };
     const hit = trCache.get(key);
-    if (hit) { h1.textContent = hit.title; art.innerHTML = hit.html; return true; }
-    const status = msg => { if (note) note.textContent = "🌐 " + msg; };
+    if (hit) { h1.textContent = hit.title; art.innerHTML = hit.html; status(trNote(hit.via)); prefetchTr(b, ch); return true; }
     try {
-      const tr = await translator(p => status(t("trDl", { p })));
-      const els = [h1, ...art.querySelectorAll("h3, p, li, td, th, blockquote, dt, dd")].filter(el => !el.closest("pre"));
-      // morceaux à traduire : bloc entier, ou, si le contenu est mélangé (code, sous-listes), seulement le texte hors code
-      const jobs = [];
-      for (const el of els) {
-        if (!el.querySelector("code, ul, ol, table, p")) { const src = el.textContent.trim(); if (src) jobs.push({ src, put: v => { el.textContent = v; } }); continue; }
-        for (const tn of [...el.childNodes].filter(x => x.nodeType === 3 || (x.nodeType === 1 && /^(a|strong|em|b|i|span)$/i.test(x.tagName)))) {
-          const src = tn.textContent; if (!src.trim()) continue;
-          jobs.push({ src: src.trim(), put: v => { tn.textContent = (/^\s/.test(src) ? " " : "") + v + (/\s$/.test(src) ? " " : ""); } });
-        }
-      }
-      const PACK = tr.many ? 40 : 1;
-      for (let k = 0; k < jobs.length; k += PACK) {
-        if (!h1.isConnected) return false;                          // chapitre quitté en cours de route
-        status(t("trBusy", { i: Math.min(k + PACK, jobs.length), n: jobs.length }));
-        const part = jobs.slice(k, k + PACK);
-        const out = tr.many ? await tr.many(part.map(j => j.src)) : [await tr.translate(part[0].src)];
-        if (!h1.isConnected) return false;
-        part.forEach((j, x) => { if (typeof out[x] === "string" && out[x]) j.put(out[x]); });
-      }
-      trCache.set(key, { title: h1.textContent, html: art.innerHTML });
-      let via = ""; try { via = natTr() ? natTr().via() : ""; } catch { /* */ }
-      status(via === "online" ? t("trOnline") : via === "device" ? t("trDevice") : t("trOn"));
+      const jobs = trJobs(h1, art);
+      const data = (await trLoad(key)) || { v: 1, via: "", map: {} };
+      data.map ||= {};
+      if (!h1.isConnected) return false;
+      jobs.forEach(j => { if (j.src in data.map) j.put(data.map[j.src]); });          // déjà traduit : affiché tout de suite
+      if (!(await trRun(key, jobs, data, status, () => h1.isConnected))) return false;
+      trCache.set(key, { title: h1.textContent, html: art.innerHTML, via: data.via });
+      status(trNote(data.via));
+      prefetchTr(b, ch);
       return true;
     } catch (e) {
       console.warn("traduction", e);
       if (!note || !note.isConnected) return false;
       note.innerHTML = `⚠ ${esc(t("trErr"))} : ${esc(e.message === "timeout" ? t("trSlow") : e.message || String(e))} <button class="btn btn-ghost btn-xs" id="bk-tr-retry">${esc(t("trRetry"))}</button>`;
-      note.querySelector("#bk-tr-retry").onclick = () => renderChapter(b, ch);   // un clic donne au navigateur l'accord de télécharger le module
+      note.querySelector("#bk-tr-retry").onclick = () => renderChapter(b, ch);   // reprend là où la traduction s'est arrêtée
       return false;
     }
+  }
+  /** Appli : le chapitre suivant est traduit en arrière-plan (écoute enchaînée sans attente). */
+  let prefetching = null;
+  function prefetchTr(b, ch) {
+    if (!natTr()) return;
+    const nx = nextOf(b, ch.n);
+    if (nx == null || prefetching === trKey(b, nx) || trCache.has(trKey(b, nx))) return;
+    const key = trKey(b, nx); prefetching = key;
+    setTimeout(async () => {
+      try {
+        const c2 = await loadChapter(b, nx);
+        const doc = new DOMParser().parseFromString(`<h1>${esc(pick(c2, "title", "en"))}</h1><div>${c2.html_en || ""}</div>`, "text/html");
+        const data = (await trLoad(key)) || { v: 1, via: "", map: {} }; data.map ||= {};
+        await trRun(key, trJobs(doc.querySelector("h1"), doc.querySelector("div")), data, () => {}, () => prefetching === key);
+      } catch (e) { console.warn("traduction du chapitre suivant", e); }
+      finally { if (prefetching === key) prefetching = null; }
+    }, 1500);
   }
 
   /* ---------------- lecteur audio (phrase par phrase) ---------------- */
