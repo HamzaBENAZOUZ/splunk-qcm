@@ -11,7 +11,9 @@ import * as src from "./doc-files.js";
 import { forEar, codeForEar, SPEECH_V } from "./speech.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
-const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:";
+const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:", WC = "splunk-books-words";
+// Temps estimé : lecture à l'œil (mots / minute) et écoute à voix haute à vitesse 1× (mots / minute, divisé par la vitesse choisie)
+const WPM_READ = 220, WPM_LISTEN = 155;
 const RATE_MIN = 0.5, RATE_MAX = 2.5, RATE_STEP = 0.1;
 const RATE_PRESETS = [0.75, 1, 1.25, 1.5, 2];
 
@@ -40,6 +42,7 @@ const L = {
     upSave: "Enregistrer dans ma bibliothèque", upCancel: "Annuler", upSaving: "Enregistrement… {i}/{n} chapitres", upOk: "« {t} » est dans ta bibliothèque",
     m_toc: "sommaire du livre", m_files: "un chapitre par fichier du livre (pas de sommaire)", m_outline: "signets du PDF",
     m_headings: "titres repérés dans le texte", m_pages5: "toutes les 5 pages", m_pages10: "toutes les 10 pages", m_pages20: "toutes les 20 pages",
+    etaRead: "Temps de lecture estimé", etaListen: "Temps d'écoute estimé (à la vitesse {r}×)",
     min: "min", upNote: "Les images et tableaux complexes ne sont pas repris : seul le texte est gardé.",
     badType: "Ce fichier n'est ni un PDF ni un EPUB.", badEpub: "Cet EPUB est illisible ou abîmé.",
     noText: "Aucun texte trouvé : c'est sans doute un PDF scanné (des images de pages), qui ne peut pas être lu à voix haute.",
@@ -95,6 +98,7 @@ const L = {
     upSave: "Save to my library", upCancel: "Cancel", upSaving: "Saving… {i}/{n} chapters", upOk: "“{t}” is in your library",
     m_toc: "the book's table of contents", m_files: "one chapter per file in the book (no table of contents)", m_outline: "PDF bookmarks",
     m_headings: "headings found in the text", m_pages5: "every 5 pages", m_pages10: "every 10 pages", m_pages20: "every 20 pages",
+    etaRead: "Estimated reading time", etaListen: "Estimated listening time (at {r}× speed)",
     min: "min", upNote: "Images and complex tables are left out: only the text is kept.",
     badType: "This file is neither a PDF nor an EPUB.", badEpub: "This EPUB is unreadable or damaged.",
     noText: "No text found: this is probably a scanned PDF (page images), which cannot be read aloud.",
@@ -225,6 +229,38 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   }
   const downloaded = b => full.has(b.id) || rdj(DL + b.id) === b.version;
 
+  /* ---------------- temps de lecture / d'écoute estimé ---------------- */
+  // Texte affiché pour ce chapitre (même choix de langue que le lecteur, hors traduction automatique)
+  const shownHtml = (b, ch) => (!upl(b) && cLang() === "fr" && ch.html_fr) || ch.html_en || "";
+  const countWords = html => {
+    const txt = String(html).replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ")
+      .replace(/&[#\w]+;/g, " ");
+    const m = txt.match(/[\p{L}\p{N}][\p{L}\p{N}'’_.-]*/gu);
+    return m ? m.length : 0;
+  };
+  let wcMap = null;
+  const wcKey = (b, n) => b.id + "|" + n + "|" + (upl(b) ? "u" : cLang());
+  const wcGet = (b, n) => { wcMap = wcMap || rdj(WC) || {}; const e = wcMap[wcKey(b, n)]; return e && e.v === b.version ? e.w : null; };
+  const wcSet = (b, n, w) => { wcMap = wcMap || rdj(WC) || {}; wcMap[wcKey(b, n)] = { v: b.version, w }; wrj(WC, wcMap); };
+  const chWords = (b, ch) => { let w = wcGet(b, ch.n); if (w == null) { w = countWords(shownHtml(b, ch)); wcSet(b, ch.n, w); } return w; };
+  const mins = x => Math.max(1, Math.round(x));
+  /** « 📖 12 min · 🎧 18 min » : lecture à l'œil et écoute (selon la vitesse de lecture choisie). */
+  function etaHtml(w, listen = true) {
+    if (!w) return "";
+    const r = mins(w / WPM_READ), l = mins(w / (WPM_LISTEN * prefs.rate));
+    return `<span title="${esc(t("etaRead"))}">📖 ${r} ${esc(t("min"))}</span>`
+      + (listen && tts.can ? ` · <span title="${esc(t("etaListen", { r: prefs.rate }))}">🎧 ${l} ${esc(t("min"))}</span>` : "");
+  }
+  const etaSpan = (b, n) => { const w = wcGet(b, n); return `<span class="bk-eta mono" data-eta="${esc(b.id)}|${n}">${w != null ? etaHtml(w) : ""}</span>`; };
+  /** Remplit les temps encore inconnus (charge le chapitre une fois, puis le nombre de mots reste en mémoire). */
+  function fillEta(el) {
+    el.querySelectorAll(".bk-eta[data-eta]:empty").forEach(async s => {
+      const [id, n] = [s.dataset.eta.slice(0, s.dataset.eta.lastIndexOf("|")), +s.dataset.eta.slice(s.dataset.eta.lastIndexOf("|") + 1)];
+      const b = book(id); if (!b) return;
+      try { const ch = await loadChapter(b, n); if (ch && s.isConnected) s.innerHTML = etaHtml(chWords(b, ch)); } catch { /* hors ligne : pas de temps */ }
+    });
+  }
+
   /** Ajoute (ou met à jour) un livre dans le compte à partir d'un fichier .book.json préparé par tools/book_build.py. */
   async function importBook(file, onStep) {
     const b = JSON.parse(await file.text());
@@ -305,7 +341,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       const title = pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`;
       const segs = [forEar(title, lang) + ".", ...speechOf(html, lang)];
       if (!c.saveChapter(b.id, ch.n, JSON.stringify({ n: ch.n, title, lang, segs }))) throw new Error(t("carErr"));
-      chs.push({ n: ch.n, title });
+      chs.push({ n: ch.n, title, words: segs.reduce((k, x) => k + (String(x).trim().match(/\S+/g) || []).length, 0) });
     }
     const ok = c.saveBook(JSON.stringify({ id: b.id, title: pick(b, "title", want), author: b.author || "", version: carV(b),
       cover: b.cover && /^data:image\/(png|jpe?g|webp);base64,/.test(b.cover) ? b.cover : "", chapters: chs }));
@@ -435,7 +471,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
             ${upl(b) ? `<p class="bk-badge mono">${esc(upl(b).kind.toUpperCase())} · ${esc(t("imported"))}</p>` : ""}
             <div class="bar bk-bar"><span style="width:${Math.round(p * 100)}%"></span></div>
             <p class="muted mono bk-meta">${s.read}/${s.total} ${esc(t("chapters"))} ${esc(t("read"))}${s.avg != null ? ` · ${s.avg} % ${esc(t("quizAvg"))}` : ""}</p>
-            <a class="btn btn-primary btn-sm" href="#/books/${encodeURIComponent(b.id)}/${n}">${esc(s.read || P.last[b.id] ? t("cont") : t("start"))} · ${esc(t("chapter"))} ${n}</a>
+            <div class="bk-go">${etaSpan(b, n)}<a class="btn btn-primary btn-sm" href="#/books/${encodeURIComponent(b.id)}/${n}">${esc(s.read || P.last[b.id] ? t("cont") : t("start"))} · ${esc(t("chapter"))} ${n}</a></div>
           </div></article>`;
       }).join("")}</div>` : `<section class="panel"><p class="muted">${esc(t("empty"))}</p></section>`}
       ${store.kind === "supabase" && !store.offline ? `<section class="panel bk-up-cta">
@@ -445,6 +481,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       ${store.kind === "supabase" && !store.offline ? `<p class="bk-imp"><label class="btn btn-ghost btn-sm">📚 ${esc(t("imp"))}
         <input type="file" id="bk-imp" accept=".json,application/json" hidden></label></p>` : ""}
     </div>`;
+    fillEta(root);
     const upBtn = root.querySelector("#bk-up");
     if (upBtn) upBtn.onclick = () => startUpload(root.querySelector("#bk-up-inp")).catch(e => { console.error(e); toast(e.message || String(e), "err"); });
     const inp = root.querySelector("#bk-imp");
@@ -480,6 +517,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
           <div class="bk-hero-stats">${ring(s.total ? s.read / s.total : 0, Math.round(s.total ? (s.read / s.total) * 100 : 0) + "%")}
             <div class="mono"><strong>${s.read}/${s.total}</strong> ${esc(t("chapters"))} ${esc(t("read"))}${s.avg != null ? `<br><strong>${s.avg} %</strong> ${esc(t("quizAvg"))}` : ""}</div></div>
           <div class="row bk-hero-acts">
+            ${etaSpan(b, n)}
             <a class="btn btn-primary" href="#/books/${encodeURIComponent(b.id)}/${n}">${esc(s.read || P.last[b.id] ? t("cont") : t("start"))} · ${esc(t("chapter"))} ${n}</a>
             ${store.kind === "supabase" ? (downloaded(b)
               ? `<span class="bk-dl-ok mono">✓ ${esc(t("dlDone"))}</span>`
@@ -504,10 +542,11 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
           const r = pr[c.n] || {};
           return `<li><a href="#/books/${encodeURIComponent(b.id)}/${c.n}" class="bk-toc-row${r.r ? " done" : ""}${c.n === n ? " cur" : ""}">
             <span class="bk-num mono">${c.n}</span><span class="bk-toc-t">${esc(pick(c, "title", ul))}</span>
-            <span class="bk-toc-s mono">${r.b != null ? `<span class="bk-score${r.b === r.t ? " full" : ""}">${r.b}/${r.t}</span>` : ""}${r.r ? `<span class="bk-check" title="${esc(t("isRead"))}">✓</span>` : ""}</span>
+            <span class="bk-toc-s mono">${wcGet(b, c.n) ? `<span class="bk-toc-eta muted" title="${esc(t("etaRead"))}">${mins(wcGet(b, c.n) / WPM_READ)} ${esc(t("min"))}</span>` : ""}${r.b != null ? `<span class="bk-score${r.b === r.t ? " full" : ""}">${r.b}/${r.t}</span>` : ""}${r.r ? `<span class="bk-check" title="${esc(t("isRead"))}">✓</span>` : ""}</span>
           </a></li>`;
         }).join("")}</ol></section>`).join("")}
     </div>`;
+    fillEta(root);
     const dl = root.querySelector("#bk-dl");
     if (dl) dl.onclick = async () => {
       dl.disabled = true; dl.textContent = t("dlBusy");
@@ -706,6 +745,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
             <button class="seg-btn mono" data-font="-1" title="${esc(t("font"))}">A−</button>
             <button class="seg-btn mono" data-font="1" title="${esc(t("font"))}">A+</button>
           </div>
+          ${(w => `<span class="bk-eta mono" data-w="${w}">${etaHtml(w)}</span>`)(countWords(html))}
           ${tts.can ? `<button class="btn btn-primary btn-sm" id="bk-listen">🔊 ${esc(pos ? t("resume") : t("listen"))}</button>
             <button class="btn btn-ghost btn-sm" id="bk-set-open" title="${esc(t("settings"))}">⚙ ${esc(t("settings"))}</button>` : ""}
           ${r.r ? `<span class="bk-read-tag mono">✓ ${esc(t("isRead"))}</span>` : ""}
@@ -1114,6 +1154,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     };
     const setRate = r => {
       prefs.rate = clampRate(r); savePrefs(); showRate();
+      document.querySelectorAll(".bk-eta[data-w]").forEach(x => { x.innerHTML = etaHtml(+x.dataset.w); });
       if (player && player.playing) play(player.i);                 // la phrase en cours reprend à la nouvelle vitesse
     };
     // Appli Android : vérifie ce qui pourrait couper l'écoute écran éteint (notifications, économie de batterie)
