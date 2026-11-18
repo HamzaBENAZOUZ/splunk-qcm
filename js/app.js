@@ -4,6 +4,7 @@ import { offlineEnabled, registerSW, unregisterSW, autonomous, setAutonomous } f
 import { createSuivi } from "./suivi.js";
 import { createBooks } from "./books.js";
 import { initTV } from "./tv.js";
+import { forEar } from "./speech.js";
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
 const IN_APP = !!window.AndroidTTS;
@@ -123,7 +124,7 @@ function speakAnswer(q, btn, lang = "en", mode = "all") {
   const key = q.id + ":" + lang + ":" + mode;
   if (speakingId === key) { stopSpeak(); return; }
   stopSpeak();
-  const text = answerSpeech(q, lang, mode);
+  const text = forEar(answerSpeech(q, lang, mode), lang);
   const done = () => { if (speakingId === key) { speakingId = null; btn.classList.remove("on"); } };
   speakingId = key; btn.classList.add("on");
   if (nativeTTS) {
@@ -159,6 +160,8 @@ function listVoices(lang = "en") {
 /** Lecture d'un texte libre (onglet Books) : langue, vitesse, voix choisie (id de listVoices, vide = automatique), rappel à la fin. */
 function speakText(text, lang = "en", rate = 1, done = () => {}, voiceId = "") {
   if (!canSpeak) return done();
+  text = forEar(text, lang);                     // adaptateur audio : ni ponctuation ni symboles prononcés
+  if (!text) return done();
   if (nativeTTS) {
     window.__ttsDone = done;
     if (typeof nativeTTS.setRate === "function") nativeTTS.setRate(rate);
