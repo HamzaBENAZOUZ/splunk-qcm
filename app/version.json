@@ -1,9 +1,9 @@
 {
-  "versionCode": 13,
-  "versionName": "2.2",
-  "apk": "app/splunk-training-v2.2.apk",
+  "versionCode": 14,
+  "versionName": "2.3",
+  "apk": "app/splunk-training-v2.3.apk",
   "notes": {
-    "fr": "Lecture audio adaptée à l'oreille : la voix ne prononce plus la ponctuation, les slashs ni les symboles (chemins, commandes SPL, liens, blocs de code). Lecteur plus petit, fixé en haut. Écoute écran éteint plus fiable : le bouton Retour ne coupe plus la lecture, et les réglages vérifient notifications et batterie.",
-    "en": "Audio reading tuned for listening: the voice no longer reads punctuation, slashes or symbols (paths, SPL commands, links, code blocks). Smaller player pinned at the top. More reliable screen-off listening: Back no longer stops reading, and settings check notifications and battery."
+    "fr": "Traduction en français dans l'appli Android : le bouton « Traduire en français » marche maintenant sur le téléphone (traduction sur l'appareil si Android la propose, sinon en ligne), et la voix française lit le texte traduit. Bouton « Bibliothèque » en haut des pages de livre.",
+    "en": "French translation in the Android app: the \"Translate to French\" button now works on the phone (on-device if Android offers it, otherwise online), and the French voice reads the translated text. \"Library\" button at the top of book pages."
   }
 }
