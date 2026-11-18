@@ -1,0 +1,3 @@
+bergamot-translator 0.4.9 (https://github.com/browsermt/bergamot-translator), Mozilla Public License 2.0.
+Translation models (downloaded at first use by the Android app, never stored in this repository):
+Bergamot / Firefox Translations models (https://github.com/mozilla/firefox-translations-models).

@@ -1,7 +1,7 @@
 // Service worker du mode hors ligne : fichiers du site en cache, réseau d'abord (les mises à jour arrivent
 // tout de suite quand on est connecté), cache si le réseau ne répond pas. Les données (Supabase) ne passent
 // pas par ici : elles sont gardées dans IndexedDB par js/store.js.
-const CACHE = "splunk-site-v5";
+const CACHE = "splunk-site-v6";
 const FILES = [
   "./", "index.html", "css/style.css", "js/app.js", "js/store.js", "js/i18n.js", "js/offline.js", "js/matrix.js",
   "js/config.js", "js/suivi.js", "js/suivi-data.js", "js/books.js", "js/doc-files.js", "js/doc-import.js", "js/tv.js", "js/speech.js", "assets/favicon.svg",
