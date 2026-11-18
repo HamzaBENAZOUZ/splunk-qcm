@@ -58,7 +58,9 @@ const L = {
     trBusy: "Traduction du chapitre… {i}/{n}", trDl: "Téléchargement du module de traduction du navigateur… {p} %", trRetry: "Traduire ce chapitre",
     trNo: "Traduction automatique indisponible ici : elle utilise le traducteur intégré de Chrome ou Edge récents sur ordinateur.",
     trErr: "La traduction automatique a échoué", trOff: "Texte original", trSlow: "le navigateur n'a pas répondu",
-    chain: "Enchaîner automatiquement le chapitre suivant",
+    trOnline: "Traduction automatique en ligne (service de traduction de Google) : le texte peut contenir des erreurs.",
+    trDevice: "Traduction automatique sur le téléphone : le texte peut contenir des erreurs.",
+    chain: "Enchaîner automatiquement le chapitre suivant", backLib: "Bibliothèque",
     bgT: "Écoute écran éteint", bgOk: "Prêt : la lecture continue appli fermée ou téléphone verrouillé, avec la notification de lecture.",
     bgNotif: "Notifications coupées : la commande lecture / pause n'apparaîtra pas en haut de l'écran.", bgNotifB: "Autoriser les notifications",
     bgBat: "Le téléphone peut couper la lecture quand l'écran est éteint.", bgBatB: "Batterie sans restriction",
@@ -108,7 +110,9 @@ const L = {
     trBusy: "Translating the chapter… {i}/{n}", trDl: "Downloading the browser's translation model… {p}%", trRetry: "Translate this chapter",
     trNo: "Machine translation is not available here: it uses the built-in translator of recent Chrome or Edge on desktop.",
     trErr: "Machine translation failed", trOff: "Original text", trSlow: "the browser did not respond",
-    chain: "Automatically continue with the next chapter",
+    trOnline: "Online machine translation (Google's translation service): the text may contain mistakes.",
+    trDevice: "Machine translation on the phone: the text may contain mistakes.",
+    chain: "Automatically continue with the next chapter", backLib: "Library",
     bgT: "Screen-off listening", bgOk: "Ready: reading goes on with the app closed or the phone locked, with the playback notification.",
     bgNotif: "Notifications are off: the play / pause control will not show at the top of the screen.", bgNotifB: "Allow notifications",
     bgBat: "The phone may stop reading when the screen is off.", bgBatB: "Unrestricted battery",
@@ -460,7 +464,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     }
     const canDl = store.kind === "supabase" && !store.offline;
     root.innerHTML = `<div class="bk-book">
-      <p class="bk-crumbs mono"><a href="#/books">← ${esc(t("lib"))}</a></p>
+      <p class="bk-crumbs mono"><a class="btn btn-ghost btn-sm bk-back" href="#/books">📚 ${esc(t("backLib"))}</a></p>
       <header class="panel bk-hero">
         ${coverImg(b, "bk-cover bk-cover-lg")}
         <div class="bk-hero-body">
@@ -600,7 +604,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     const d = draft; if (!d) return renderLib();
     const chs = d.chapters;
     root.innerHTML = `<div class="bk-up">
-      <p class="bk-crumbs mono"><a href="#/books">← ${esc(t("lib"))}</a></p>
+      <p class="bk-crumbs mono"><a class="btn btn-ghost btn-sm bk-back" href="#/books">📚 ${esc(t("backLib"))}</a></p>
       <header class="bk-head"><div><p class="kicker mono">// import ${esc(d.res.kind)}</p><h1>${esc(t("upTitle"))}</h1>
         <p class="muted bk-sub">${esc(d.picked.file.name)} · ${chs.length} ${esc(t("chapters"))}</p></div></header>
       <section class="panel bk-up-form">
@@ -676,7 +680,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     const base = `#/books/${encodeURIComponent(b.id)}`;
     const pos = P.pos[b.id + "|" + n] || 0;
     root.innerHTML = `<div class="bk-reader" style="--bk-font:${prefs.font}">
-      <p class="bk-crumbs mono"><a href="#/books">${esc(t("lib"))}</a> › <a href="${base}">${esc(pick(b, "title", uiLang()))}</a></p>
+      <p class="bk-crumbs mono"><a class="btn btn-ghost btn-sm bk-back" href="#/books">📚 ${esc(t("backLib"))}</a> <span><a href="${base}">${esc(pick(b, "title", uiLang()))}</a></span></p>
       <header class="bk-ch-head">
         <p class="kicker mono">${esc(pick(ch, "section", lang))}${pick(ch, "section", lang) ? " · " : ""}${esc(t("chapter"))} ${n}/${b.chapters.length}</p>
         <h1 class="bk-ch-title" lang="${lang}">${esc(pick(ch, "title", trOn ? "en" : lang))}</h1>
@@ -779,8 +783,26 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   /* ---------------- traduction automatique (navigateur) ---------------- */
   const trCache = new Map();          // chapitres traduits pendant cette session : { title, html } (jamais enregistrés)
   let trP = null;
-  function trSupported() { return typeof self !== "undefined" && "Translator" in self && typeof self.Translator.create === "function"; }
+  // Appli Android : la WebView n'a pas la Translator API ; l'appli traduit elle-même (pont AndroidTranslate :
+  // sur le téléphone si Android le propose, sinon en ligne), par paquets de textes.
+  const natTr = () => (window.AndroidTranslate && typeof window.AndroidTranslate.translate === "function" ? window.AndroidTranslate : null);
+  const trWait = new Map();
+  window.__trDone = (id, res, err) => { const w = trWait.get(id); if (!w) return; trWait.delete(id); res ? w.ok(res) : w.ko(new Error(err || "?")); };
+  let trSeq = 0;
+  const nativeTranslator = {
+    many(list) {
+      const id = "t" + (++trSeq);
+      return new Promise((ok, ko) => {
+        trWait.set(id, { ok, ko });
+        setTimeout(() => { if (trWait.delete(id)) ko(new Error("timeout")); }, 180000);
+        try { natTr().translate(id, JSON.stringify(list)); } catch (e) { trWait.delete(id); ko(e); }
+      });
+    },
+    async translate(s) { return (await this.many([s]))[0]; },
+  };
+  function trSupported() { return !!natTr() || (typeof self !== "undefined" && "Translator" in self && typeof self.Translator.create === "function"); }
   async function translator(onDl) {
+    if (natTr()) return nativeTranslator;
     if (trP) return trP;
     const av = await withTimeout(self.Translator.availability({ sourceLanguage: "en", targetLanguage: "fr" }), 8000);
     if (av === "unavailable") throw new Error(t("trNo"));
@@ -805,23 +827,27 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     try {
       const tr = await translator(p => status(t("trDl", { p })));
       const els = [h1, ...art.querySelectorAll("h3, p, li, td, th, blockquote, dt, dd")].filter(el => !el.closest("pre"));
-      for (let k = 0; k < els.length; k++) {
-        if (!h1.isConnected) return false;                          // chapitre quitté en cours de route
-        status(t("trBusy", { i: k + 1, n: els.length }));
-        const el = els[k];
-        if (!el.querySelector("code, ul, ol, table, p")) {
-          const src = el.textContent.trim(); if (src) el.textContent = await tr.translate(src);
-          continue;
-        }
-        // contenu mélangé (code, sous-listes) : seuls les morceaux de texte hors code sont traduits
+      // morceaux à traduire : bloc entier, ou, si le contenu est mélangé (code, sous-listes), seulement le texte hors code
+      const jobs = [];
+      for (const el of els) {
+        if (!el.querySelector("code, ul, ol, table, p")) { const src = el.textContent.trim(); if (src) jobs.push({ src, put: v => { el.textContent = v; } }); continue; }
         for (const tn of [...el.childNodes].filter(x => x.nodeType === 3 || (x.nodeType === 1 && /^(a|strong|em|b|i|span)$/i.test(x.tagName)))) {
           const src = tn.textContent; if (!src.trim()) continue;
-          const out = await tr.translate(src.trim());
-          tn.textContent = (/^\s/.test(src) ? " " : "") + out + (/\s$/.test(src) ? " " : "");
+          jobs.push({ src: src.trim(), put: v => { tn.textContent = (/^\s/.test(src) ? " " : "") + v + (/\s$/.test(src) ? " " : ""); } });
         }
       }
+      const PACK = tr.many ? 40 : 1;
+      for (let k = 0; k < jobs.length; k += PACK) {
+        if (!h1.isConnected) return false;                          // chapitre quitté en cours de route
+        status(t("trBusy", { i: Math.min(k + PACK, jobs.length), n: jobs.length }));
+        const part = jobs.slice(k, k + PACK);
+        const out = tr.many ? await tr.many(part.map(j => j.src)) : [await tr.translate(part[0].src)];
+        if (!h1.isConnected) return false;
+        part.forEach((j, x) => { if (typeof out[x] === "string" && out[x]) j.put(out[x]); });
+      }
       trCache.set(key, { title: h1.textContent, html: art.innerHTML });
-      status(t("trOn"));
+      let via = ""; try { via = natTr() ? natTr().via() : ""; } catch { /* */ }
+      status(via === "online" ? t("trOnline") : via === "device" ? t("trDevice") : t("trOn"));
       return true;
     } catch (e) {
       console.warn("traduction", e);
@@ -1062,7 +1088,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     const L2 = q => q[lang] || q.en;
     const r = rec(b.id, ch.n);
     root.innerHTML = `<div class="bk-quiz">
-      <p class="bk-crumbs mono"><a href="#/books/${encodeURIComponent(b.id)}">${esc(pick(b, "title", uiLang()))}</a> › <a href="${base}">${esc(t("chapter"))} ${ch.n}</a></p>
+      <p class="bk-crumbs mono"><a class="btn btn-ghost btn-sm bk-back" href="#/books">📚 ${esc(t("backLib"))}</a> <span><a href="#/books/${encodeURIComponent(b.id)}">${esc(pick(b, "title", uiLang()))}</a> › <a href="${base}">${esc(t("chapter"))} ${ch.n}</a></span></p>
       <header class="bk-ch-head"><p class="kicker mono">${esc(t("quiz"))} · ${esc(t("chapter"))} ${ch.n}</p>
         <h1 lang="${lang}">${esc(pick(ch, "title", lang))}</h1>
         <div class="bk-tools"><div class="seg" role="group" aria-label="${esc(t("content"))}">
