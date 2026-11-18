@@ -8,6 +8,7 @@
 // l'appareil et synchronisée avec la table splunk_book_progress.
 import { idbGet, idbSet, isNetErr, withTimeout } from "./offline.js";
 import * as src from "./doc-files.js";
+import { forEar, codeForEar, SPEECH_V } from "./speech.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
 const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:";
@@ -58,6 +59,9 @@ const L = {
     trNo: "Traduction automatique indisponible ici : elle utilise le traducteur intégré de Chrome ou Edge récents sur ordinateur.",
     trErr: "La traduction automatique a échoué", trOff: "Texte original", trSlow: "le navigateur n'a pas répondu",
     chain: "Enchaîner automatiquement le chapitre suivant",
+    bgT: "Écoute écran éteint", bgOk: "Prêt : la lecture continue appli fermée ou téléphone verrouillé, avec la notification de lecture.",
+    bgNotif: "Notifications coupées : la commande lecture / pause n'apparaîtra pas en haut de l'écran.", bgNotifB: "Autoriser les notifications",
+    bgBat: "Le téléphone peut couper la lecture quand l'écran est éteint.", bgBatB: "Batterie sans restriction",
     car: "Écouter dans la voiture (Android Auto)", carUpd: "Mettre à jour dans la voiture", carIn: "Dans la voiture",
     carBusy: "Envoi vers la voiture… {i}/{n}", carOk: "« {t} » est prêt dans Android Auto", carRm: "Retirer de la voiture",
     carRmOk: "Livre retiré d'Android Auto", carErr: "Envoi vers la voiture impossible", carRead: "{n} chapitre(s) écouté(s) en voiture marqué(s) comme lu(s)",
@@ -105,6 +109,9 @@ const L = {
     trNo: "Machine translation is not available here: it uses the built-in translator of recent Chrome or Edge on desktop.",
     trErr: "Machine translation failed", trOff: "Original text", trSlow: "the browser did not respond",
     chain: "Automatically continue with the next chapter",
+    bgT: "Screen-off listening", bgOk: "Ready: reading goes on with the app closed or the phone locked, with the playback notification.",
+    bgNotif: "Notifications are off: the play / pause control will not show at the top of the screen.", bgNotifB: "Allow notifications",
+    bgBat: "The phone may stop reading when the screen is off.", bgBatB: "Unrestricted battery",
     car: "Listen in the car (Android Auto)", carUpd: "Update in the car", carIn: "In the car",
     carBusy: "Sending to the car… {i}/{n}", carOk: "“{t}” is ready in Android Auto", carRm: "Remove from the car",
     carRmOk: "Book removed from Android Auto", carErr: "Could not send to the car", carRead: "{n} chapter(s) listened to in the car marked as read",
@@ -137,6 +144,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   let root = null, pushTimer = null, busy = false;
   let player = null;              // { segs, i, playing, token, lang }
   let quizState = null;
+  let bgWarned = false;           // avertissement « notifications coupées » déjà montré
   let draft = null;               // import PDF / EPUB en cours de vérification
 
   const uiLang = () => (getLang() === "en" ? "en" : "fr");
@@ -258,18 +266,21 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     const c = car(); if (!c) return;
     try { c.settings(JSON.stringify({ rate: prefs.rate, voice: prefs.vname || {}, chain: prefs.chain })); } catch { /* ancienne appli */ }
   }
+  const carV = b => String(b.version || "") + "~" + SPEECH_V;      // texte adapté à l'écoute : nouvelles règles = livre à renvoyer
   const carVersion = b => { const c = car(); try { return c ? c.bookVersion(b.id) || "" : ""; } catch { return ""; } };
   /** Phrases à lire pour un chapitre (même découpage que le lecteur de la page). */
   function speechOf(html, lang) {
     const doc = new DOMParser().parseFromString(`<div>${html || ""}</div>`, "text/html"), out = [];
-    doc.querySelectorAll("h3, p, li").forEach(el => {
+    const ear = x => forEar(x, lang);
+    doc.querySelectorAll("h3, p, li, pre").forEach(el => {
+      if (el.tagName === "PRE") { const txt = codeForEar(el.textContent, lang); if (txt) out.push(txt); return; }
       if (el.closest("pre") || (el.tagName === "P" && el.closest("li"))) return;
       let raw = el.textContent || "";
       if (el.tagName === "LI" && el.querySelector("ul,ol")) {
         const c = el.cloneNode(true); c.querySelectorAll("ul,ol").forEach(x => x.remove());
-        const txt = cleanSpeech(c.textContent || ""); if (txt) out.push(txt); return;
+        const txt = ear(cleanSpeech(c.textContent || "")); if (txt) out.push(txt); return;
       }
-      for (const [a, z] of sentences(raw, lang)) { const txt = cleanSpeech(raw.slice(a, z)); if (txt) out.push(txt); }
+      for (const [a, z] of sentences(raw, lang)) { const txt = ear(cleanSpeech(raw.slice(a, z))); if (txt) out.push(txt); }
     });
     return out;
   }
@@ -282,11 +293,11 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       const lang = u ? want : (want === "fr" && ch.html_fr ? "fr" : "en");
       const html = u ? ch.html_en : (lang === "fr" ? ch.html_fr : ch.html_en);
       const title = pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`;
-      const segs = [title + ".", ...speechOf(html, lang)];
+      const segs = [forEar(title, lang) + ".", ...speechOf(html, lang)];
       if (!c.saveChapter(b.id, ch.n, JSON.stringify({ n: ch.n, title, lang, segs }))) throw new Error(t("carErr"));
       chs.push({ n: ch.n, title });
     }
-    const ok = c.saveBook(JSON.stringify({ id: b.id, title: pick(b, "title", want), author: b.author || "", version: String(b.version || ""),
+    const ok = c.saveBook(JSON.stringify({ id: b.id, title: pick(b, "title", want), author: b.author || "", version: carV(b),
       cover: b.cover && /^data:image\/(png|jpe?g|webp);base64,/.test(b.cover) ? b.cover : "", chapters: chs }));
     if (!ok) throw new Error(t("carErr"));
     carSettings();
@@ -469,7 +480,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
             ${canDl ? `<div class="row"><button class="btn btn-ghost btn-sm" id="bk-resplit">✂ ${esc(t("resplit"))}</button>
               <input type="file" id="bk-up-inp" accept="${src.ACCEPT}" hidden></div>` : ""}
           </div>` : ""}
-          ${car() ? (() => { const v = carVersion(b), fresh = v && v === String(b.version || "");
+          ${car() ? (() => { const v = carVersion(b), fresh = v && v === carV(b);
             return `<div class="row bk-car">${v ? `<span class="bk-dl-ok mono">🚗 ${esc(t("carIn"))}${fresh ? " ✓" : ""}</span>` : ""}
               ${fresh ? "" : `<button class="btn btn-ghost btn-sm" id="bk-car" ${canDl || downloaded(b) ? "" : "disabled"}>🚗 ${esc(v ? t("carUpd") : t("car"))}</button>`}
               ${v ? `<button class="btn btn-ghost btn-xs" id="bk-car-rm">${esc(t("carRm"))}</button>` : ""}</div>`; })() : ""}
@@ -721,6 +732,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
         <div class="row bk-set-pre">${RATE_PRESETS.map(x => `<button class="seg-btn mono" data-rate="${x}">${x}×</button>`).join("")}</div>
       </div>
       <label class="bk-set-chain"><input type="checkbox" id="bk-chain"> <span>${esc(t("chain"))}</span></label>
+      ${window.AndroidListen ? `<div class="bk-set-bg" id="bk-bg"></div>` : ""}
       <div class="bk-set-f"><span class="mono muted">${esc(t("para"))}</span>
         <div class="row"><button class="btn btn-ghost btn-sm" data-pl="prevp" title="${esc(t("prevP"))}">⏪ ${esc(t("pPrev"))}</button>
           <button class="btn btn-ghost btn-sm" data-pl="nextp" title="${esc(t("nextP"))}">${esc(t("pNext"))} ⏩</button></div></div>
@@ -821,7 +833,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   }
 
   /* ---------------- lecteur audio (phrase par phrase) ---------------- */
-  const cleanSpeech = s => s.replace(/https?:\/\/\S+/g, `(${t("link")})`).replace(/\s+/g, " ").trim()
+  const cleanSpeech = s => s.replace(/\s+/g, " ").trim()
     .replace(/^(.{2,80}?):\s/, (m, a) => (/[.!?]$/.test(a) ? m : a + ". "));
   /** Découpe un texte en phrases : [[début, fin], …] (positions dans le texte), les très courtes collées à leur voisine. */
   function sentences(raw, lang) {
@@ -862,7 +874,12 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     if (!bar || !tts.can) return;
     const speakLang = lang === "fr" && !tts.canFr ? "en" : lang;
     const segs = [];
-    root.querySelectorAll(".bk-ch-title, .bk-content h3, .bk-content p, .bk-content li, .bk-notes h3, .bk-notes p").forEach(el => {
+    root.querySelectorAll(".bk-ch-title, .bk-content h3, .bk-content p, .bk-content li, .bk-content pre, .bk-notes h3, .bk-notes p").forEach(el => {
+      if (el.tagName === "PRE") {
+        const txt = codeForEar(el.textContent, speakLang);
+        if (txt) { el.dataset.seg = segs.length; el.classList.add("bk-seg"); segs.push({ el, txt, a: null }); }
+        return;
+      }
       if (el.closest("pre") || el.classList.contains("bk-notes-sub")) return;
       const nested = el.tagName === "LI" && el.querySelector("ul,ol");
       const first = segs.length;
@@ -901,7 +918,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       player.i = j; player.playing = true; keep();
       const my = ++player.token; paint();
       const el = segs[j].el, rc = el.getBoundingClientRect();
-      if (rc.top < 70 || rc.bottom > innerHeight - 160) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (rc.top < (parseInt(document.documentElement.style.getPropertyValue("--tb-h")) || 60) + 56 || rc.bottom > innerHeight - 40) el.scrollIntoView({ behavior: "smooth", block: "center" });
       say(segs[j].txt, player.lang, () => {
         if (!player || my !== player.token) return;
         if (j + 1 < segs.length) play(j + 1);
@@ -926,9 +943,13 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       while (j < segs.length - 1 && segs[j].el === el) j++;
       return j;
     };
+    // position du lecteur : juste sous la barre de titre (sa hauteur change avec la largeur de l'écran)
+    const tbH = () => { const tb = document.querySelector(".topbar"); document.documentElement.style.setProperty("--tb-h", (tb ? tb.offsetHeight : 0) + "px"); };
+    tbH(); addEventListener("resize", tbH, { passive: true });
     const open = () => {
       bar.hidden = false; document.body.classList.add("bk-playing");
       if (lang === "fr" && !tts.canFr) toast(t("noVoiceFr"), "warn");
+      else if (window.AndroidListen && !bgWarned) { try { if (!window.AndroidListen.notifOk()) { bgWarned = true; toast(t("bgNotif"), "warn"); } } catch { /* */ } }
       play(player.i);
     };
     if (btn) btn.onclick = () => (bar.hidden ? open() : player.playing ? pause() : play(player.i));
@@ -961,11 +982,31 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       prefs.rate = clampRate(r); savePrefs(); showRate();
       if (player && player.playing) play(player.i);                 // la phrase en cours reprend à la nouvelle vitesse
     };
+    // Appli Android : vérifie ce qui pourrait couper l'écoute écran éteint (notifications, économie de batterie)
+    const fillBg = () => {
+      const box = set.querySelector("#bk-bg"), L = window.AndroidListen; if (!box || !L) return;
+      let n = true, bat = true; try { n = L.notifOk(); bat = L.batteryOk(); } catch { /* */ }
+      box.innerHTML = `<h4>${esc(t("bgT"))}</h4>` + (n && bat ? `<p class="muted">✓ ${esc(t("bgOk"))}</p>` : "")
+        + (n ? "" : `<p>⚠ ${esc(t("bgNotif"))}</p><button class="btn btn-ghost btn-sm" data-bg="notif">🔔 ${esc(t("bgNotifB"))}</button>`)
+        + (bat ? "" : `<p>⚠ ${esc(t("bgBat"))}</p><button class="btn btn-ghost btn-sm" data-bg="bat">🔋 ${esc(t("bgBatB"))}</button>`);
+      box.querySelectorAll("[data-bg]").forEach(x => x.onclick = () => { try { x.dataset.bg === "notif" ? L.openNotif() : L.openBattery(); } catch { /* */ } });
+    };
+    document.addEventListener("visibilitychange", function onVis() {
+      if (!set.isConnected) return document.removeEventListener("visibilitychange", onVis);
+      if (!document.hidden && !set.hidden) fillBg();              // retour des réglages du téléphone
+    });
     const toggleSet = (force) => {
       set.hidden = force != null ? !force : !set.hidden;
       document.body.classList.toggle("bk-set-on", !set.hidden);
-      if (!set.hidden) { fillVoices(); showRate(); }
+      if (!set.hidden) { fillVoices(); showRate(); fillBg(); }
     };
+    // Réglages ouverts : un clic ailleurs sur la page les referme (ils ne bloquent jamais le reste)
+    const offSet = e => {
+      if (!set.isConnected) return document.removeEventListener("pointerdown", offSet, true);
+      if (set.hidden || set.contains(e.target) || e.target.closest('[data-pl="set"], #bk-set-open')) return;
+      toggleSet(false);
+    };
+    document.addEventListener("pointerdown", offSet, true);
     const so = root.querySelector("#bk-set-open");
     if (so) so.onclick = () => toggleSet();
     if (tts.onVoices) tts.onVoices(() => { if (!set.hidden && set.isConnected) fillVoices(); });
