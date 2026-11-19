@@ -60,7 +60,7 @@ export function initTV() {
     if (a && dir[0] && a.matches('input[type=range], input[type=text], input[type=email], input[type=password], input:not([type]), textarea')) return;
     if (a && a.matches("select") && dir[1]) return;                  // liste déroulante ouverte : laisse faire
     e.preventDefault(); e.stopImmediatePropagation();
-    const scope = document.querySelector(".bk-modal-ov") || document;  // fenêtre de confirmation : on y reste
+    const scope = document.querySelector(".bk-modal-ov") || document.querySelector(".cast-ov") || document;  // fenêtre ouverte (confirmation, lecteur télé) : on y reste
     if (!a || !shown(a) || !scope.contains(a)) {
       const first = [...scope.querySelectorAll(FOCUSABLE)].find(el => { if (!shown(el)) return false; const r = el.getBoundingClientRect(); return r.bottom > 60 && r.top < innerHeight; });
       if (first) return focusEl(first);

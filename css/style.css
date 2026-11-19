@@ -899,3 +899,57 @@ html.tv .bk-up-cta, html.tv .bk-imp { display: none; }   /* pas d'import de fich
 .bk-set-chain input { width: 18px; height: 18px; accent-color: var(--cyan); }
 html.tv .bk-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 540px), 1fr)); }
 html.tv .bk-card .btn { white-space: normal; }
+
+/* ---------- Google TV : association, télécommande sur le téléphone, lecteur plein écran sur la télé ---------- */
+.bk-cast { gap: 8px; margin-top: 8px; }
+.cast-modal { border-color: color-mix(in srgb, var(--cyan) 40%, var(--line)); max-height: calc(100vh - 32px); overflow: auto; }
+.cast-modal h3 { margin: 14px 0 6px; font-size: .9rem; }
+.cast-list, .cast-phones { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.cast-tv { width: 100%; justify-content: flex-start; gap: 8px; text-align: left; }
+.cast-tv .muted { margin-left: auto; font-size: .75rem; }
+.cast-phones li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.cast-scan { font-size: .82rem; }
+.cast-manual { margin-top: 10px; font-size: .85rem; }
+.cast-manual summary { cursor: pointer; }
+.cast-manual .row, .cast-step .row { gap: 8px; margin-top: 8px; flex-wrap: nowrap; }
+.cast-inp { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text); font-size: .95rem; }
+.cast-code-inp { font-size: 1.6rem; letter-spacing: .5em; text-align: center; max-width: 9ch; }
+.cast-err { margin: 10px 0 0; color: var(--red); font-size: .88rem; }
+.cast-err[hidden] { display: none; }
+
+.cast-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + var(--safe-b, 0px)); z-index: 60;
+  width: min(560px, calc(100% - 24px)); padding: 10px 12px; display: grid; gap: 8px; border-color: color-mix(in srgb, var(--cyan) 45%, var(--line));
+  box-shadow: var(--glow); }
+body.has-nav .cast-bar { bottom: calc(82px + var(--safe-b, 0px)); }
+.cast-bar p { margin: 0; }
+.cast-bar-tv { font-size: .75rem; color: var(--cyan); }
+.cast-bar-t { font-weight: 600; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cast-bar-s { font-size: .75rem; }
+.cast-bar-btns { display: flex; align-items: center; justify-content: space-between; gap: 4px; flex-wrap: wrap; }
+.cast-bar .icon-btn { width: 36px; height: 36px; border-radius: 50%; }
+.cast-bar .cast-main { width: 42px; height: 42px; background: var(--grad); color: #fff; border-color: transparent; }
+.cast-rate { font-size: .75rem; min-width: 3.5ch; text-align: center; }
+body.cast-remote-on .toast, body.cast-remote-on .upd-banner { bottom: calc(150px + var(--safe-b, 0px)); }
+
+.cast-ov { position: fixed; inset: 0; z-index: 90; overflow-y: auto; background: var(--bg); padding: 4vh 6vw 22vh; }
+body.cast-tv-on { overflow: hidden; }
+.cast-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 3vh;
+  padding-bottom: 2vh; border-bottom: 1px solid var(--line); }
+.cast-head .kicker { margin: 0 0 8px; color: var(--muted); }
+.cast-title { margin: 0; font-size: 2.2rem; line-height: 1.2; }
+.cast-pos { margin: 0; color: var(--muted); white-space: nowrap; }
+.cast-text { max-width: 72ch; margin: 0 auto; font-size: 1.55rem; line-height: 1.75; }
+.cast-text h2 { font-size: 1.9rem; margin: 0 0 1em; }
+.cast-text h3 { font-size: 1.6rem; margin: 1.4em 0 .5em; }
+.cast-text p { margin: 0 0 .9em; }
+.cast-text .cast-li { padding-left: 1.4em; position: relative; }
+.cast-text .cast-li::before { content: "•"; position: absolute; left: .3em; color: var(--cyan); }
+.cast-text pre { font-size: 1.1rem; white-space: pre-wrap; padding: 14px 18px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.cast-text .bk-say { border-radius: 8px; scroll-margin: 30vh; }
+.cast-ctl { position: fixed; left: 50%; transform: translateX(-50%); bottom: 4vh; display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: var(--glow); }
+.cast-ctl .btn { font-size: 1.1rem; }
+
+.cast-code { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 70%, transparent); pointer-events: none; }
+.cast-code-box { padding: 4vh 6vw; text-align: center; border-color: var(--cyan); box-shadow: var(--glow); }
+.cast-code-n { margin: 2vh 0; font-size: 6rem; font-weight: 700; letter-spacing: .25em; color: var(--cyan); }

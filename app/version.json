@@ -1,9 +1,9 @@
 {
-  "versionCode": 17,
-  "versionName": "2.6",
-  "apk": "app/splunk-training-v2.6.apk",
+  "versionCode": 18,
+  "versionName": "2.7",
+  "apk": "app/splunk-training-v2.7.apk",
   "notes": {
-    "fr": "L'écran reste allumé pendant l'écoute d'un livre : le téléphone ne se verrouille plus tant que la voix lit, et redevient normal à la pause ou à l'arrêt. Réglable dans les réglages de lecture (« Garder l'écran allumé pendant l'écoute »). Tu peux toujours éteindre l'écran avec le bouton marche/arrêt : la lecture continue en arrière-plan.",
-    "en": "The screen stays on while a book is read aloud: the phone no longer locks while the voice is reading, and goes back to normal on pause or stop. Can be turned off in the reading settings (\"Keep the screen on while listening\"). You can still turn the screen off with the power button: playback goes on in the background."
+    "fr": "Nouveau : module Google TV. Installe aussi cette version sur la Google TV, puis sur le téléphone, dans Books, appuie sur « 📺 Lire sur la télé » : choisis la télé et entre le code à 4 chiffres affiché dessus. La télé reste associée (même après redémarrage) jusqu'à ce que tu la dissocies. Le livre s'affiche en grand sur la télé, qui le lit à voix haute ; le téléphone sert de télécommande (lecture, pause, phrase et chapitre suivants, vitesse). Les chapitres écoutés sur la télé sont marqués comme lus.",
+    "en": "New: Google TV module. Also install this version on the Google TV, then on the phone, in Books, tap “📺 Play on TV”: pick the TV and enter the 4-digit code it shows. The TV stays paired (even after a restart) until you unpair it. The book is shown full screen on the TV, which reads it aloud; the phone is the remote (play, pause, next sentence and chapter, speed). Chapters listened to on the TV are marked as read."
   }
 }
