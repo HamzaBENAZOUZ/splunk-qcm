@@ -9,7 +9,7 @@
 import { idbGet, idbSet, isNetErr, withTimeout } from "./offline.js";
 import * as src from "./doc-files.js";
 import { forEar, codeForEar, SPEECH_V } from "./speech.js";
-import { canCast, sendBook, setCastAction } from "./cast.js";
+import { canCast, sendBook, sendChapter, setCastAction } from "./cast.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
 const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:", WC = "splunk-books-words";
@@ -74,7 +74,7 @@ const L = {
     car: "Écouter dans la voiture (Android Auto)", carUpd: "Mettre à jour dans la voiture", carIn: "Dans la voiture",
     carBusy: "Envoi vers la voiture… {i}/{n}", carOk: "« {t} » est prêt dans Android Auto", carRm: "Retirer de la voiture",
     carRmOk: "Livre retiré d'Android Auto", carErr: "Envoi vers la voiture impossible", carRead: "{n} chapitre(s) écouté(s) en voiture marqué(s) comme lu(s)",
-    tvBook: "Lire « {t} » sur la télé", tvCh: "Lire sur la télé à partir du chapitre {n}", tvBusy: "Préparation pour la télé… {i}/{n}", tvRead: "{n} chapitre(s) écouté(s) sur la télé marqué(s) comme lu(s)",
+    tvBook: "Lire « {t} » sur la télé", tvCh: "Lire sur la télé à partir du chapitre {n}", tvBusy: "Préparation pour la télé… {i}/{n}", tvTrBg: "La télé lit déjà ; les chapitres suivants sont traduits en français sur le téléphone et lui sont envoyés au fur et à mesure.", tvRead: "{n} chapitre(s) écouté(s) sur la télé marqué(s) comme lu(s)",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -131,7 +131,7 @@ const L = {
     car: "Listen in the car (Android Auto)", carUpd: "Update in the car", carIn: "In the car",
     carBusy: "Sending to the car… {i}/{n}", carOk: "“{t}” is ready in Android Auto", carRm: "Remove from the car",
     carRmOk: "Book removed from Android Auto", carErr: "Could not send to the car", carRead: "{n} chapter(s) listened to in the car marked as read",
-    tvBook: "Play “{t}” on the TV", tvCh: "Play on the TV from chapter {n}", tvBusy: "Preparing for the TV… {i}/{n}", tvRead: "{n} chapter(s) listened to on the TV marked as read",
+    tvBook: "Play “{t}” on the TV", tvCh: "Play on the TV from chapter {n}", tvBusy: "Preparing for the TV… {i}/{n}", tvTrBg: "The TV is already reading; the next chapters are translated into French on the phone and sent to it as they are ready.", tvRead: "{n} chapter(s) listened to on the TV marked as read",
   },
 };
 
@@ -411,34 +411,88 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     });
     return out;
   }
-  async function tvPkg(b, start, onStep) {
-    const u = upl(b), want = u ? voiceOf(b) : cLang(), chapters = [];
+  /** Chapitre traduit en français (traductions gardées sur l'appareil) ; wait = false : seulement si déjà traduit. */
+  async function trHtml(b, ch, wait) {
+    const key = trKey(b, ch.n);
+    if (trCache.has(key)) return trCache.get(key);
+    try {
+      const doc = new DOMParser().parseFromString(`<h1>${esc(pick(ch, "title", "en"))}</h1><div>${ch.html_en || ""}</div>`, "text/html");
+      const h1 = doc.querySelector("h1"), div = doc.querySelector("div");
+      const jobs = trJobs(h1, div), data = (await trLoad(key)) || { v: 1, via: "", map: {} };
+      data.map ||= {};
+      jobs.forEach(j => { if (j.src in data.map) j.put(data.map[j.src]); });
+      if (jobs.some(j => !(j.src in data.map))) {
+        if (!wait) return null;
+        if (!(await trRun(key, jobs, data, () => {}, () => true))) return null;
+      }
+      const r = { title: h1.textContent, html: div.innerHTML, via: data.via };
+      trCache.set(key, r);
+      return r;
+    } catch (e) { console.warn("traduction pour la télé", e); return null; }
+  }
+  /** Langue voulue sur la télé : celle du lecteur (traduction comprise). */
+  function tvLang(b) {
+    const u = upl(b);
+    if (!u) return cLang();
+    return u.lang === "en" && prefs.tr && prefs.tr[b.id] ? "fr" : voiceOf(b);
+  }
+  /**
+   * Livre préparé pour la télé. Texte français absent : le téléphone le traduit (même traducteur que le lecteur) ;
+   * le chapitre de départ et le suivant tout de suite, les autres après l'envoi (liste `later`, renvoyés un par un).
+   */
+  async function tvPkg(b, start, onStep, want = tvLang(b), later = []) {
+    const u = upl(b), chapters = [], canTr = trSupported();
+    const si = Math.max(0, b.chapters.findIndex(c => c.n === start));
     for (let i = 0; i < b.chapters.length; i++) {
       onStep && onStep(i + 1, b.chapters.length);
       const ch = await loadChapter(b, b.chapters[i].n);
-      const lang = u ? want : (want === "fr" && ch.html_fr ? "fr" : "en");
-      const html = u ? ch.html_en : (lang === "fr" ? ch.html_fr : ch.html_en);
-      const title = pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`;
-      chapters.push({ n: ch.n, title, lang, blocks: [{ k: "h1", x: title, s: [title] }, ...blocksOf(html, lang)] });
+      const needTr = want === "fr" && (u ? u.lang === "en" : !ch.html_fr);
+      let lang = u ? u.lang : (want === "fr" && ch.html_fr ? "fr" : "en");
+      let html = u ? ch.html_en : (lang === "fr" ? ch.html_fr : ch.html_en);
+      let title = pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`;
+      if (needTr && canTr) {
+        const tr = await trHtml(b, ch, i === si || i === si + 1);
+        if (tr) { lang = "fr"; html = tr.html; title = tr.title || title; }
+        else later.push(ch.n);
+      }
+      chapters.push(tvChapterOf(ch.n, title, lang, html));
     }
-    return { id: b.id, title: pick(b, "title", want), author: b.author || "", ui: uiLang(), rate: prefs.rate,
+    return { id: b.id, title: pick(b, "title", want), author: b.author || "", ui: uiLang(), rate: prefs.rate, lang: want,
       start, pos: P.pos[b.id + "|" + start] || 0, chapters };
   }
+  const tvChapterOf = (n, title, lang, html) => ({ n, title, lang, blocks: [{ k: "h1", x: title, s: [title] }, ...blocksOf(html, lang)] });
   /** Chapitres écoutés jusqu'au bout sur la télé : marqués comme lus ici (et synchronisés). */
   function tvDone(id, ns) {
     let k = 0;
     for (const n of ns) { const r = rec(id, n); if (!r.r) { r.r = Date.now(); k++; } P.dirty[id + "|" + n] = 1; }
     saveP(); if (k) toast(t("tvRead", { n: k }), "ok");
   }
-  async function toTv(b, n, btn) {
+  let tvGen = 0;
+  async function toTv(b, n, btn, want, frac) {
     stop();
+    const gen = ++tvGen, later = [];
+    btn = btn || document.createElement("button");
     const old = btn.innerHTML; btn.disabled = true;
+    let sent = false, pkg = null;
     try {
-      const pkg = await tvPkg(b, n, (i, k) => { btn.textContent = btn.classList.contains("cast-top") ? `⏳ ${i}/${k}` : "⏳ " + t("tvBusy", { i, n: k }); });
+      pkg = await tvPkg(b, n, (i, k) => { btn.textContent = btn.classList.contains("cast-top") ? `⏳ ${i}/${k}` : "⏳ " + t("tvBusy", { i, n: k }); }, want || tvLang(b), later);
+      if (frac > 0) pkg.frac = frac;
       btn.textContent = "⏳ 📺";
-      await sendBook(pkg, { onDone: tvDone });
+      sent = await sendBook(pkg, { onDone: tvDone, relang: (lang, n2, f) => toTv(b, n2 ?? n, null, lang, f) });
     } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
     if (btn.isConnected) { btn.disabled = false; btn.innerHTML = old; }
+    // traduction des autres chapitres, dans l'ordre de lecture, envoyés à la télé dès qu'ils sont prêts
+    if (!sent || !later.length) return;
+    const order = [...later.filter(x => x >= n), ...later.filter(x => x < n)];
+    toast(t("tvTrBg"), "info");
+    for (const x of order) {
+      if (gen !== tvGen) return;                      // un autre livre (ou l'autre langue) a été envoyé entre-temps
+      try {
+        const ch = await loadChapter(b, x), tr = await trHtml(b, ch, true);
+        if (!tr || gen !== tvGen) continue;
+        await sendChapter(b.id, tvChapterOf(x, tr.title || pick(ch, "title", "en"), "fr", tr.html));
+      } catch (e) { console.warn("traduction pour la télé", e); }
+    }
   }
 
   /* ---------------- progression ---------------- */

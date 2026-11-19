@@ -1,9 +1,9 @@
 {
-  "versionCode": 20,
-  "versionName": "2.9",
-  "apk": "app/splunk-training.apk?v=2.9",
+  "versionCode": 21,
+  "versionName": "3.0",
+  "apk": "app/splunk-training.apk?v=3.0",
   "notes": {
-    "fr": "Google TV : le bouton 📺 est maintenant en haut de l'écran, sur toutes les pages du téléphone. Il sert à associer la télé, à envoyer le livre ou le chapitre ouvert, à rouvrir la télécommande, à changer de télé ou à la dissocier. Il est entouré quand une télé est associée.",
-    "en": "Google TV: the 📺 button is now at the top of the screen, on every page of the phone. Use it to pair the TV, send the open book or chapter, reopen the remote, change TV or unpair it. It is highlighted when a TV is paired."
+    "fr": "Google TV : la traduction marche aussi sur la télé. Quand le livre est réglé en français mais qu'un chapitre n'existe qu'en anglais, le téléphone le traduit (même traducteur que le lecteur) et la télé l'affiche et le lit en français. Le premier chapitre est traduit avant l'envoi, les suivants arrivent sur la télé au fur et à mesure. Nouveau bouton FR / EN sur la télécommande du téléphone pour changer de langue sur la télé, au même endroit du chapitre.",
+    "en": "Google TV: translation now works on the TV too. When the book is set to French but a chapter only exists in English, the phone translates it (same translator as the reader) and the TV shows and reads it in French. The first chapter is translated before sending, the next ones reach the TV as they are ready. New FR / EN button on the phone remote to switch the TV's language at the same place in the chapter."
   }
 }
