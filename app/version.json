@@ -1,9 +1,9 @@
 {
-  "versionCode": 21,
-  "versionName": "3.0",
-  "apk": "app/splunk-training.apk?v=3.0",
+  "versionCode": 22,
+  "versionName": "3.1",
+  "apk": "app/splunk-training.apk?v=3.1",
   "notes": {
-    "fr": "Google TV : la traduction marche aussi sur la télé. Quand le livre est réglé en français mais qu'un chapitre n'existe qu'en anglais, le téléphone le traduit (même traducteur que le lecteur) et la télé l'affiche et le lit en français. Le premier chapitre est traduit avant l'envoi, les suivants arrivent sur la télé au fur et à mesure. Nouveau bouton FR / EN sur la télécommande du téléphone pour changer de langue sur la télé, au même endroit du chapitre.",
-    "en": "Google TV: translation now works on the TV too. When the book is set to French but a chapter only exists in English, the phone translates it (same translator as the reader) and the TV shows and reads it in French. The first chapter is translated before sending, the next ones reach the TV as they are ready. New FR / EN button on the phone remote to switch the TV's language at the same place in the chapter."
+    "fr": "Google TV : quand une télé est associée, le bouton principal d'un chapitre devient « 📺 Écouter sur la télé » : la lecture se fait sur la télé, plus sur le téléphone. Pour écouter quand même sur le téléphone, utilise le bouton « 🔊 Sur le téléphone ».",
+    "en": "Google TV: when a TV is paired, a chapter's main button becomes “📺 Listen on the TV”: playback happens on the TV, not on the phone. To listen on the phone anyway, use the “🔊 On the phone” button."
   }
 }

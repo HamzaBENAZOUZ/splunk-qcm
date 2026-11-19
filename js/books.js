@@ -9,7 +9,7 @@
 import { idbGet, idbSet, isNetErr, withTimeout } from "./offline.js";
 import * as src from "./doc-files.js";
 import { forEar, codeForEar, SPEECH_V } from "./speech.js";
-import { canCast, sendBook, sendChapter, setCastAction } from "./cast.js";
+import { canCast, pairedTv, sendBook, sendChapter, setCastAction } from "./cast.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
 const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:", WC = "splunk-books-words";
@@ -74,7 +74,7 @@ const L = {
     car: "Écouter dans la voiture (Android Auto)", carUpd: "Mettre à jour dans la voiture", carIn: "Dans la voiture",
     carBusy: "Envoi vers la voiture… {i}/{n}", carOk: "« {t} » est prêt dans Android Auto", carRm: "Retirer de la voiture",
     carRmOk: "Livre retiré d'Android Auto", carErr: "Envoi vers la voiture impossible", carRead: "{n} chapitre(s) écouté(s) en voiture marqué(s) comme lu(s)",
-    tvBook: "Lire « {t} » sur la télé", tvCh: "Lire sur la télé à partir du chapitre {n}", tvBusy: "Préparation pour la télé… {i}/{n}", tvTrBg: "La télé lit déjà ; les chapitres suivants sont traduits en français sur le téléphone et lui sont envoyés au fur et à mesure.", tvRead: "{n} chapitre(s) écouté(s) sur la télé marqué(s) comme lu(s)",
+    tvListen: "Écouter sur {n}", phoneListen: "Sur le téléphone", tvBook: "Lire « {t} » sur la télé", tvCh: "Lire sur la télé à partir du chapitre {n}", tvBusy: "Préparation pour la télé… {i}/{n}", tvTrBg: "La télé lit déjà ; les chapitres suivants sont traduits en français sur le téléphone et lui sont envoyés au fur et à mesure.", tvRead: "{n} chapitre(s) écouté(s) sur la télé marqué(s) comme lu(s)",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -131,7 +131,7 @@ const L = {
     car: "Listen in the car (Android Auto)", carUpd: "Update in the car", carIn: "In the car",
     carBusy: "Sending to the car… {i}/{n}", carOk: "“{t}” is ready in Android Auto", carRm: "Remove from the car",
     carRmOk: "Book removed from Android Auto", carErr: "Could not send to the car", carRead: "{n} chapter(s) listened to in the car marked as read",
-    tvBook: "Play “{t}” on the TV", tvCh: "Play on the TV from chapter {n}", tvBusy: "Preparing for the TV… {i}/{n}", tvTrBg: "The TV is already reading; the next chapters are translated into French on the phone and sent to it as they are ready.", tvRead: "{n} chapter(s) listened to on the TV marked as read",
+    tvListen: "Listen on {n}", phoneListen: "On the phone", tvBook: "Play “{t}” on the TV", tvCh: "Play on the TV from chapter {n}", tvBusy: "Preparing for the TV… {i}/{n}", tvTrBg: "The TV is already reading; the next chapters are translated into French on the phone and sent to it as they are ready.", tvRead: "{n} chapter(s) listened to on the TV marked as read",
   },
 };
 
@@ -860,6 +860,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     const notes = ch.notes && (ch.notes[lang] || ch.notes.en);
     const base = `#/books/${encodeURIComponent(b.id)}`;
     const pos = P.pos[b.id + "|" + n] || 0;
+    const tvNow = canCast() ? pairedTv() : null;     // télé associée : « Écouter » part sur la télé, le téléphone reste possible
     root.innerHTML = `<div class="bk-reader" style="--bk-font:${prefs.font}">
       <p class="bk-crumbs mono"><a class="btn btn-ghost btn-sm bk-back" href="#/books">📚 ${esc(t("backLib"))}</a> <span><a href="${base}">${esc(pick(b, "title", uiLang()))}</a></span></p>
       <header class="bk-ch-head">
@@ -882,7 +883,8 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
             <button class="seg-btn mono" data-font="1" title="${esc(t("font"))}">A+</button>
           </div>
           ${(w => `<span class="bk-eta mono" data-w="${w}">${etaHtml(w)}</span>`)(countWords(html))}
-          ${tts.can ? `<button class="btn btn-primary btn-sm" id="bk-listen">🔊 ${esc(pos ? t("resume") : t("listen"))}</button>
+          ${tvNow ? `<button class="btn btn-primary btn-sm" id="bk-tvlisten">📺 ${esc(t("tvListen", { n: tvNow.name || "TV" }))}</button>` : ""}
+          ${tts.can ? `<button class="btn ${tvNow ? "btn-ghost" : "btn-primary"} btn-sm" id="bk-listen">🔊 ${esc(tvNow ? t("phoneListen") : pos ? t("resume") : t("listen"))}</button>
             <button class="btn btn-ghost btn-sm" id="bk-set-open" title="${esc(t("settings"))}">⚙ ${esc(t("settings"))}</button>` : ""}
           ${r.r ? `<span class="bk-read-tag mono">✓ ${esc(t("isRead"))}</span>` : ""}
         </div>
@@ -947,6 +949,8 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     });
     const mark = () => { if (!rec(b.id, n).r) { rec(b.id, n).r = Date.now(); saveP(b.id, n); } };
     if (canCast()) setCastAction({ label: t("tvCh", { n }), run: btn => toTv(b, n, btn) });
+    const tvl = root.querySelector("#bk-tvlisten");
+    if (tvl) tvl.onclick = () => toTv(b, n, tvl);
     const mk = root.querySelector("#bk-mark");
     if (mk) mk.onclick = () => { mark(); renderChapter(b, ch); };
     // Arrivé en bas du chapitre : il compte comme lu.
