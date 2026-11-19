@@ -4,7 +4,7 @@ import { offlineEnabled, registerSW, unregisterSW, autonomous, setAutonomous } f
 import { createSuivi } from "./suivi.js";
 import { createBooks } from "./books.js";
 import { initTV } from "./tv.js";
-import { initCast } from "./cast.js";
+import { initCast, isCastTv, renderTvHome } from "./cast.js";
 import { forEar } from "./speech.js";
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
@@ -541,6 +541,8 @@ function renderLogin(mode = "login") {
   state.view = "login"; state.authMode = mode;
   document.getElementById("user-label").textContent = "";
   document.getElementById("btn-logout").hidden = true;
+  // Google TV : pas de connexion demandée, la télé attend les livres du téléphone associé
+  if (mode === "login" && isCastTv() && !state.tvLogin) return renderTvHome(app, () => { state.tvLogin = true; renderLogin(); });
   const signup = mode === "signup";
   app.innerHTML = `
   <section class="auth panel">

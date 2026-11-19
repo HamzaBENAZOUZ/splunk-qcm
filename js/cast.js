@@ -27,6 +27,9 @@ const L = {
     tvNone: "Aucun téléphone associé. Sur le téléphone : Books › un livre › 📺 Lire sur la télé.", tvUnpair: "Dissocier", tvUnpairAll: "Tout dissocier",
     tvCode: "Code d'association", tvCodeFor: "Demandé par {p}. Entre ce code sur le téléphone.", tvPaired: "Téléphone associé : {p}",
     tvDone: "Livre terminé", tvFrom: "Envoyé depuis le téléphone",
+    homeK: "mode télé", homeT: "Prête pour le téléphone", homeTxt: "Pas besoin de te connecter sur la télé : choisis un livre sur le téléphone, la télé l'affiche et le lit à voix haute.",
+    homeHow: "Sur le téléphone : Books › un livre › 📺 Lire sur la télé.", homeFirst: "Première fois : choisis cette télé sur le téléphone, puis tape le code qui s'affichera ici.",
+    homePaired: "Téléphone(s) associé(s) : {p}", homeManage: "Téléphones associés", homeLogin: "Se connecter sur la télé",
   },
   en: {
     cast: "Play on TV", castTo: "Play on {n}", unpair: "Unpair the TV", unpairQ: "Unpair “{n}”? You will need to pair again with a code.",
@@ -44,6 +47,9 @@ const L = {
     tvNone: "No phone paired yet. On the phone: Books › a book › 📺 Play on TV.", tvUnpair: "Unpair", tvUnpairAll: "Unpair all",
     tvCode: "Pairing code", tvCodeFor: "Requested by {p}. Enter this code on the phone.", tvPaired: "Phone paired: {p}",
     tvDone: "Book finished", tvFrom: "Sent from the phone",
+    homeK: "TV mode", homeT: "Ready for the phone", homeTxt: "No need to sign in on the TV: pick a book on the phone, the TV shows it and reads it aloud.",
+    homeHow: "On the phone: Books › a book › 📺 Play on TV.", homeFirst: "First time: pick this TV on the phone, then type the code that will show up here.",
+    homePaired: "Paired phone(s): {p}", homeManage: "Paired phones", homeLogin: "Sign in on the TV",
   },
 };
 
@@ -464,10 +470,37 @@ function tvPanel() {
     if (e.target === panel || e.target.closest('[data-m="no"]')) return close();
     const u = e.target.closest("[data-un]"); if (!u) return;
     try { b.unpairPhone(u.dataset.un); } catch { /* */ }
-    tvPanel();
+    tvPanel(); homeRefresh();
   };
   const first = panel.querySelector("[data-un], [data-m]"); if (first) first.focus();
 }
+
+/* ---------------- télé : écran d'accueil sans connexion ---------------- */
+// La télé n'a pas besoin du compte : les livres arrivent du téléphone associé. Au lieu de l'écran de connexion,
+// elle affiche cet écran d'attente ; « Se connecter sur la télé » reste possible pour les QCM.
+export const isCastTv = () => tvSide();
+let home = null;          // { el, onLogin }
+export function renderTvHome(el, onLogin) {
+  const b = bridge(); if (!b) return;
+  home = { el, onLogin };
+  let info = {}; try { info = JSON.parse(b.info() || "{}"); } catch { /* */ }
+  const phones = (info.phones || []).map(p => p.name || "?");
+  el.innerHTML = `<section class="panel cast-home">
+    <p class="mono kicker">&gt; ${esc(t("homeK"))}</p>
+    <h1>📺 ${esc(t("homeT"))}</h1>
+    <p class="cast-home-name"><strong>${esc(info.name || "TV")}</strong> <span class="muted mono">${esc(info.ip || "")}${info.port ? ":" + info.port : ""}</span></p>
+    <p>${esc(t("homeTxt"))}</p>
+    <p class="muted">${esc(phones.length ? t("homeHow") : t("homeFirst") + " " + t("homeHow"))}</p>
+    ${phones.length ? `<p class="mono cast-home-ph">📱 ${esc(t("homePaired", { p: phones.join(", ") }))}</p>` : ""}
+    <div class="row cast-home-acts">
+      ${phones.length ? `<button class="btn btn-ghost" id="cast-home-ph">${esc(t("homeManage"))}</button>` : ""}
+      <button class="btn btn-ghost" id="cast-home-login">${esc(t("homeLogin"))}</button>
+    </div></section>`;
+  const m = el.querySelector("#cast-home-ph"); if (m) m.onclick = tvPanel;
+  el.querySelector("#cast-home-login").onclick = () => { home = null; onLogin && onLogin(); };
+  const first = el.querySelector(".cast-home button"); if (first) setTimeout(() => first.focus({ preventScroll: true }), 50);
+}
+const homeRefresh = () => { if (home && home.el.querySelector(".cast-home")) renderTvHome(home.el, home.onLogin); else home = null; };
 
 /* ---------------- démarrage ---------------- */
 export function initCast(deps) {
@@ -484,8 +517,8 @@ export function initCast(deps) {
     right.insertBefore(btn, right.firstChild);
   }
   on("code", d => d && tvShowCode(d.code, d.phone));
-  on("codeEnd", d => { tvHideCode(); if (d && d.phone) D.toast(t("tvPaired", { p: d.phone }), "ok"); if (panel) tvPanel(); });
-  on("phones", () => { if (panel) tvPanel(); });
+  on("codeEnd", d => { tvHideCode(); if (d && d.phone) D.toast(t("tvPaired", { p: d.phone }), "ok"); if (panel) tvPanel(); homeRefresh(); });
+  on("phones", () => { if (panel) tvPanel(); homeRefresh(); });
   on("play", tvTake);
   on("cmd", d => d && tvCmd(d.c, d.v));
   window.__castBack = () => { if (codeEl) return tvHideCode(); tvStop(); };

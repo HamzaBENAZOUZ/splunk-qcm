@@ -953,3 +953,9 @@ body.cast-tv-on { overflow: hidden; }
 .cast-code { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 70%, transparent); pointer-events: none; }
 .cast-code-box { padding: 4vh 6vw; text-align: center; border-color: var(--cyan); box-shadow: var(--glow); }
 .cast-code-n { margin: 2vh 0; font-size: 6rem; font-weight: 700; letter-spacing: .25em; color: var(--cyan); }
+.cast-home { max-width: 760px; margin: 6vh auto; padding: 32px 36px; }
+.cast-home h1 { margin: 6px 0 14px; font-size: 2.2rem; }
+.cast-home p { font-size: 1.1rem; line-height: 1.6; margin: 0 0 12px; }
+.cast-home-name strong { font-size: 1.25rem; }
+.cast-home-ph { color: var(--cyan); }
+.cast-home-acts { gap: 12px; margin-top: 18px; }

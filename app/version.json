@@ -1,9 +1,9 @@
 {
-  "versionCode": 18,
-  "versionName": "2.7",
-  "apk": "app/splunk-training-v2.7.apk",
+  "versionCode": 19,
+  "versionName": "2.8",
+  "apk": "app/splunk-training-v2.8.apk",
   "notes": {
-    "fr": "Nouveau : module Google TV. Installe aussi cette version sur la Google TV, puis sur le téléphone, dans Books, appuie sur « 📺 Lire sur la télé » : choisis la télé et entre le code à 4 chiffres affiché dessus. La télé reste associée (même après redémarrage) jusqu'à ce que tu la dissocies. Le livre s'affiche en grand sur la télé, qui le lit à voix haute ; le téléphone sert de télécommande (lecture, pause, phrase et chapitre suivants, vitesse). Les chapitres écoutés sur la télé sont marqués comme lus.",
-    "en": "New: Google TV module. Also install this version on the Google TV, then on the phone, in Books, tap “📺 Play on TV”: pick the TV and enter the 4-digit code it shows. The TV stays paired (even after a restart) until you unpair it. The book is shown full screen on the TV, which reads it aloud; the phone is the remote (play, pause, next sentence and chapter, speed). Chapters listened to on the TV are marked as read."
+    "fr": "Google TV : la télé ne demande plus de se connecter. À l'ouverture, elle affiche « Prête pour le téléphone » avec son nom, et attend les livres envoyés depuis le téléphone (Books › un livre › 📺 Lire sur la télé). Tu peux toujours te connecter sur la télé avec le bouton « Se connecter sur la télé ».",
+    "en": "Google TV: the TV no longer asks you to sign in. When opened, it shows “Ready for the phone” with its name and waits for books sent from the phone (Books › a book › 📺 Play on TV). You can still sign in on the TV with the “Sign in on the TV” button."
   }
 }
