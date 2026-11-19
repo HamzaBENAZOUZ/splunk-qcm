@@ -31,6 +31,9 @@ const L = {
     homeHow: "Sur le téléphone : Books › un livre › 📺 Lire sur la télé.", homeFirst: "Première fois : choisis cette télé sur le téléphone, puis tape le code qui s'affichera ici.",
     homePaired: "Téléphone(s) associé(s) : {p}", homeManage: "Téléphones associés", homeLogin: "Se connecter sur la télé",
     menuT: "Télé", menuNone: "Aucune télé associée.", menuPair: "Associer une télé", menuChange: "Changer de télé",
+    voiceT: "Voix de la télé", voiceAuto: "Automatique (meilleure voix)", voiceFr: "Voix française", voiceEn: "Voix anglaise",
+    voiceNone: "Aucune voix trouvée sur la télé. Installe ou mets à jour « Services vocaux Google » sur la télé.", voiceOk: "Voix changée sur la télé",
+    noTts: "Pas de synthèse vocale sur cette télé : installe « Services vocaux Google » (Play Store de la télé).",
     menuRemote: "Ouvrir la télécommande", lang: "Langue sur la télé (FR / EN)", relang: "Passage en {l} sur la télé…", trBg: "Traduction des chapitres suivants pour la télé…", menuHint: "Ouvre un livre ou un chapitre (onglet Books) pour l'envoyer sur la télé.",
   },
   en: {
@@ -53,6 +56,9 @@ const L = {
     homeHow: "On the phone: Books › a book › 📺 Play on TV.", homeFirst: "First time: pick this TV on the phone, then type the code that will show up here.",
     homePaired: "Paired phone(s): {p}", homeManage: "Paired phones", homeLogin: "Sign in on the TV",
     menuT: "TV", menuNone: "No TV paired.", menuPair: "Pair a TV", menuChange: "Change TV",
+    voiceT: "TV voice", voiceAuto: "Automatic (best voice)", voiceFr: "French voice", voiceEn: "English voice",
+    voiceNone: "No voice found on the TV. Install or update “Speech Services by Google” on the TV.", voiceOk: "Voice changed on the TV",
+    noTts: "No text-to-speech on this TV: install “Speech Services by Google” (TV Play Store).",
     menuRemote: "Open the remote", lang: "Language on the TV (FR / EN)", relang: "Switching the TV to {l}…", trBg: "Translating the next chapters for the TV…", menuHint: "Open a book or a chapter (Books tab) to send it to the TV.",
   },
 };
@@ -299,6 +305,7 @@ function showRemote(tv, ctx) {
       <span class="mono cast-rate" id="cast-rate"></span>
       <button class="icon-btn" data-c="faster" title="${esc(t("faster"))}" aria-label="${esc(t("faster"))}">+</button>
       ${ctx.relang ? `<button class="btn btn-ghost btn-xs mono cast-lang" data-c="lang" title="${esc(t("lang"))}" aria-label="${esc(t("lang"))}">${esc((pkg.lang || "en").toUpperCase())}</button>` : ""}
+      <button class="icon-btn" data-c="voice" title="${esc(t("voiceT"))}" aria-label="${esc(t("voiceT"))}">🗣</button>
       <button class="icon-btn" data-c="stop" title="${esc(t("stop"))}" aria-label="${esc(t("stop"))}">⏹</button>
       <button class="icon-btn" data-c="hide" title="${esc(t("hide"))}" aria-label="${esc(t("hide"))}">✕</button>
     </div>`;
@@ -311,7 +318,7 @@ function showRemote(tv, ctx) {
     if (!s || s.closed) { el.querySelector("#cast-bar-s").textContent = t("stopped"); return; }
     if (s.loading) { el.querySelector("#cast-bar-s").textContent = s.open === false ? t("openTv") : t("loading"); return; }
     if (s.title) el.querySelector("#cast-bar-t").textContent = `${s.title} · ${s.ch || ""}`;
-    el.querySelector("#cast-bar-s").textContent = s.finished ? t("tvDone")
+    el.querySelector("#cast-bar-s").textContent = s.err ? "⚠ " + s.err : s.finished ? t("tvDone")
       : `${s.playing ? "▶" : "⏸"} ${t("chapter")} ${s.n} (${(s.ci ?? 0) + 1}/${s.nCh || "?"}) · ${(s.k ?? 0) + 1}/${s.total || "?"}`;
     remote.st = s;
     if (s.rate) { remote.rate = s.rate; el.querySelector("#cast-rate").textContent = s.rate + "×"; }
@@ -322,15 +329,17 @@ function showRemote(tv, ctx) {
     fresh.forEach(n => seen.add(n));
     if (fresh.length && s.book === remote.book && remote.onDone) remote.onDone(s.book, fresh);
   };
+  let polling = false;           // une seule requête à la fois (Wi-Fi lent : pas d'accumulation)
   const poll = async () => {
-    if (document.hidden || !remote || remote.el !== el) return;
-    const r = await call("GET", "/state");
-    if (r.status === 200) paint(r.data);
+    if (polling || document.hidden || !remote || remote.el !== el) return;
+    polling = true;
+    try { const r = await call("GET", "/state"); if (r.status === 200) paint(r.data); } finally { polling = false; }
   };
   el.onclick = async e => {
     const a = e.target.closest("[data-c]"); if (!a) return;
     const c = a.dataset.c;
     if (c === "hide") return hideRemote();
+    if (c === "voice") return voiceDialog(remote.st || {});
     if (c === "lang") {
       // l'autre langue : le téléphone prépare (et traduit si besoin) le livre, puis le renvoie à la même place
       const st = remote.st || {}, cur = st.lang || pkg.lang || "en", to = cur === "fr" ? "en" : "fr";
@@ -347,7 +356,35 @@ function showRemote(tv, ctx) {
   setTimeout(poll, 800);
 }
 
+/** Téléphone : choix de la voix de la télé (voix installées sur la télé, en français et en anglais). */
+async function voiceDialog(st) {
+  const r = await call("GET", "/voices");
+  if (r.status !== 200) { if (r.status !== 401) D.toast(t("noTv"), "err"); return; }
+  const all = Array.isArray(r.data.voices) ? r.data.voices : [], cur = r.data.chosen || {};
+  const label = v => `${v.lang} · ${String(v.name).replace(/^[a-z]{2,3}-[a-z]{2,3}-x-/i, "").replace(/-(local|network)$/i, "")}${v.net ? " · ☁" : ""}${v.q >= 400 ? " ★" : ""}`;
+  const sel = lang => {
+    const vs = all.filter(v => String(v.lang).toLowerCase().startsWith(lang));
+    return `<label class="cast-voice"><span class="mono muted">${esc(t(lang === "fr" ? "voiceFr" : "voiceEn"))}</span>
+      <select class="cast-inp" data-lang="${lang}"><option value="">${esc(t("voiceAuto"))}</option>
+      ${vs.map(v => `<option value="${esc(v.name)}" ${cur[lang] === v.name ? "selected" : ""}>${esc(label(v))}</option>`).join("")}</select></label>`;
+  };
+  const first = st.lang === "en" ? ["en", "fr"] : ["fr", "en"];
+  const ov = modal(`<h2>🗣 ${esc(t("voiceT"))}</h2>
+    ${all.length ? first.map(sel).join("") : `<p class="muted">${esc(t("voiceNone"))}</p>`}
+    <div class="row bk-modal-acts"><button class="btn btn-primary" data-k="close">${esc(t("close"))}</button></div>`);
+  const close = () => ov.remove();
+  ov.onclick = e => { if (e.target === ov || e.target.closest('[data-k="close"]')) close(); };
+  ov.querySelectorAll("select").forEach(x => x.onchange = async () => {
+    const res = await call("POST", "/cmd", { c: "voice", v: { lang: x.dataset.lang, id: x.value } });
+    D.toast(res.status === 200 ? t("voiceOk") : t("noTv"), res.status === 200 ? "ok" : "err");
+  });
+}
+
 /* ---------------- télé : lecteur plein écran ---------------- */
+// Voix choisie depuis le téléphone, gardée sur la télé : { fr: nom, en: nom } (vide = automatique)
+const TV_VOICE = "splunk-tv-voice";
+let tvVoice = {};
+try { tvVoice = JSON.parse(localStorage.getItem(TV_VOICE) || "{}") || {}; } catch { tvVoice = {}; }
 let tvp = null;          // { pkg, ci, k, segs, playing, token, rate, done:Set, el }
 
 function tvReport(extra) {
@@ -356,9 +393,9 @@ function tvReport(extra) {
   if (tvp) {
     const ch = tvp.pkg.chapters[tvp.ci];
     s = { book: tvp.pkg.id, title: tvp.pkg.title, n: ch.n, ch: ch.title, ci: tvp.ci, nCh: tvp.pkg.chapters.length,
-      k: tvp.k, total: tvp.segs.length, playing: tvp.playing, rate: tvp.rate, done: [...tvp.done], finished: !!tvp.finished, lang: ch.lang || "en" };
+      k: tvp.k, total: tvp.segs.length, playing: tvp.playing, rate: tvp.rate, done: [...tvp.done], finished: !!tvp.finished, lang: ch.lang || "en", err: tvp.err || "" };
   }
-  try { b.state(JSON.stringify({ ...s, ...(extra || {}) })); } catch { /* */ }
+  try { b.state(JSON.stringify({ ...s, voice: tvVoice, ...(extra || {}) })); } catch { /* */ }
 }
 
 function tvAwake(on) { try { window.AndroidMedia && window.AndroidMedia.screen(!!on); } catch { /* */ } }
@@ -424,7 +461,7 @@ function tvPaint() {
     }
   }
   const pos = P.el.querySelector("#cast-pos");
-  if (pos) pos.textContent = P.finished ? t("tvDone") : `${P.k + 1}/${P.segs.length || 1}`;
+  if (pos) pos.textContent = P.err ? "⚠ " + P.err : P.finished ? t("tvDone") : `${P.k + 1}/${P.segs.length || 1}`;
   const main = P.el.querySelector(".cast-main");
   if (main) { main.textContent = P.playing ? "⏸ " + t("pause") : "▶ " + t("play"); }
   const rt = P.el.querySelector("#cast-tv-rate"); if (rt) rt.textContent = P.rate + "×";
@@ -433,17 +470,26 @@ function tvPaint() {
 }
 
 function tvPlay(k) {
-  const P = tvp; if (!P || !D.tts || !D.tts.can) return tvPaint();
+  const P = tvp; if (!P) return;
+  if (!D.tts || !D.tts.can) { P.playing = false; P.err = t("noTts"); tvPaint(); return; }
   if (!P.segs.length) return tvEndChapter();
-  P.k = Math.max(0, Math.min(P.segs.length - 1, k)); P.playing = true; P.finished = false;
+  P.k = Math.max(0, Math.min(P.segs.length - 1, k)); P.playing = true; P.finished = false; P.err = "";
   const my = ++P.token;
+  clearTimeout(P.wd);
   tvPaint();
   const ch = P.pkg.chapters[P.ci];
   const lng = ch.lang === "fr" && D.tts.canFr ? "fr" : "en";
-  D.tts.speak(P.segs[P.k].txt, lng, P.rate, () => {
-    if (tvp !== P || my !== P.token) return;
+  const txt = P.segs[P.k].txt;
+  let moved = false;
+  const next = () => {
+    if (moved || tvp !== P || my !== P.token) return;
+    moved = true; clearTimeout(P.wd);
     if (P.k + 1 < P.segs.length) tvPlay(P.k + 1); else tvEndChapter();
-  }, "");
+  };
+  // Filet de sécurité : si le moteur vocal de la télé ne signale pas la fin de la phrase, la lecture continue quand même
+  const words = (txt.match(/\S+/g) || []).length;
+  P.wd = setTimeout(next, Math.max(9000, (words / (2.4 * P.rate)) * 1000 * 2.5 + 6000));
+  D.tts.speak(txt, lng, P.rate, next, tvVoice[lng] || "");
 }
 
 function tvEndChapter() {
@@ -456,7 +502,7 @@ function tvEndChapter() {
 
 function tvPause() {
   const P = tvp; if (!P) return;
-  P.token++; P.playing = false;
+  P.token++; P.playing = false; clearTimeout(P.wd);
   try { D.tts.stop(); } catch { /* */ }
   tvPaint();
 }
@@ -464,7 +510,7 @@ function tvPause() {
 function tvStop(silent) {
   if (!tvp) return;
   const P = tvp;
-  P.token++;
+  P.token++; clearTimeout(P.wd);
   try { D.tts.stop(); } catch { /* */ }
   tvp = null;
   P.el.remove();
@@ -475,6 +521,12 @@ function tvStop(silent) {
 }
 
 function tvCmd(c, v) {
+  if (c === "voice" && v && (v.lang === "fr" || v.lang === "en")) {
+    tvVoice[v.lang] = String(v.id || "");
+    try { localStorage.setItem(TV_VOICE, JSON.stringify(tvVoice)); } catch { /* */ }
+    if (!tvp) return tvReport();
+    return tvp.playing ? tvPlay(tvp.k) : tvPaint();                // la phrase en cours reprend avec la nouvelle voix
+  }
   const P = tvp; if (!P) return;
   const move = j => { if (P.playing) tvPlay(j); else { P.k = Math.max(0, Math.min(P.segs.length - 1, j)); tvPaint(); } };
   if (c === "toggle") return P.playing ? tvPause() : tvPlay(P.finished ? 0 : P.k);
