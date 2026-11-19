@@ -30,6 +30,8 @@ const L = {
     homeK: "mode télé", homeT: "Prête pour le téléphone", homeTxt: "Pas besoin de te connecter sur la télé : choisis un livre sur le téléphone, la télé l'affiche et le lit à voix haute.",
     homeHow: "Sur le téléphone : Books › un livre › 📺 Lire sur la télé.", homeFirst: "Première fois : choisis cette télé sur le téléphone, puis tape le code qui s'affichera ici.",
     homePaired: "Téléphone(s) associé(s) : {p}", homeManage: "Téléphones associés", homeLogin: "Se connecter sur la télé",
+    menuT: "Télé", menuNone: "Aucune télé associée.", menuPair: "Associer une télé", menuChange: "Changer de télé",
+    menuRemote: "Ouvrir la télécommande", menuHint: "Ouvre un livre ou un chapitre (onglet Books) pour l'envoyer sur la télé.",
   },
   en: {
     cast: "Play on TV", castTo: "Play on {n}", unpair: "Unpair the TV", unpairQ: "Unpair “{n}”? You will need to pair again with a code.",
@@ -50,6 +52,8 @@ const L = {
     homeK: "TV mode", homeT: "Ready for the phone", homeTxt: "No need to sign in on the TV: pick a book on the phone, the TV shows it and reads it aloud.",
     homeHow: "On the phone: Books › a book › 📺 Play on TV.", homeFirst: "First time: pick this TV on the phone, then type the code that will show up here.",
     homePaired: "Paired phone(s): {p}", homeManage: "Paired phones", homeLogin: "Sign in on the TV",
+    menuT: "TV", menuNone: "No TV paired.", menuPair: "Pair a TV", menuChange: "Change TV",
+    menuRemote: "Open the remote", menuHint: "Open a book or a chapter (Books tab) to send it to the TV.",
   },
 };
 
@@ -200,6 +204,48 @@ async function call(method, path, body) {
 }
 
 let remote = null;          // { el, timer, onDone, book }
+let last = null;            // dernier livre envoyé : pour rouvrir la télécommande depuis le bouton 📺 du haut
+let action = null;          // page en cours (livre ou chapitre) : { hash, label, run(btn) }
+
+/** L'onglet Books indique ce que le bouton 📺 du haut peut envoyer sur la page affichée (null : rien). */
+export function setCastAction(a) { action = a ? { ...a, hash: location.hash } : null; }
+
+/* ---------------- téléphone : bouton 📺 en haut, sur toutes les pages ---------------- */
+let topBtn = null;
+function paintTopBtn() {
+  if (!topBtn) return;
+  const tv = pairedTv();
+  topBtn.classList.toggle("on", !!tv);
+  topBtn.title = topBtn.ariaLabel = tv ? `${t("menuT")} : ${tv.name || "TV"}` : t("menuPair");
+}
+async function phoneMenu() {
+  let tv = pairedTv();
+  if (!tv) { await pairDialog(); return paintTopBtn(); }
+  const act = action && action.hash === location.hash ? action : null;
+  const ov = modal(`<h2>📺 ${esc(tv.name || "TV")}</h2>
+    <div class="cast-menu">
+      ${act ? `<button class="btn btn-primary" data-k="send">📺 ${esc(act.label)}</button>` : `<p class="muted">${esc(t("menuHint"))}</p>`}
+      ${last ? `<button class="btn btn-ghost" data-k="remote">🎛 ${esc(t("menuRemote"))}</button>` : ""}
+      <button class="btn btn-ghost" data-k="change">🔄 ${esc(t("menuChange"))}</button>
+      <button class="btn btn-ghost" data-k="unpair">✕ ${esc(t("unpair"))}</button>
+    </div>
+    <div class="row bk-modal-acts"><button class="btn btn-ghost" data-k="close">${esc(t("close"))}</button></div>`);
+  const close = () => { ov.remove(); removeEventListener("keydown", onKey); };
+  const onKey = e => { if (e.key === "Escape") close(); };
+  addEventListener("keydown", onKey);
+  ov.onclick = async e => {
+    if (e.target === ov) return close();
+    const b = e.target.closest("[data-k]"); if (!b) return;
+    const k = b.dataset.k;
+    close();
+    if (k === "send") await act.run(topBtn);
+    else if (k === "remote") showRemote(pairedTv() || tv, last.meta, last.onDone);
+    else if (k === "change") await pairDialog();
+    else if (k === "unpair") await unpairTv();
+    paintTopBtn();
+  };
+  const f = ov.querySelector("[data-k]"); if (f) f.focus();
+}
 
 /**
  * Envoie un livre préparé par l'onglet Books :
@@ -213,7 +259,9 @@ export async function sendBook(pkg, opts = {}) {
   if (r.status !== 200) { if (r.status !== 401) D.toast(t("noTv"), "err"); return false; }
   tv = pairedTv() || tv;
   D.toast(r.data.open === false ? t("openTv") : t("sent", { n: tv.name || "TV" }), r.data.open === false ? "warn" : "ok");
-  showRemote(tv, pkg, opts.onDone);
+  last = { meta: { id: pkg.id, title: pkg.title, rate: pkg.rate }, onDone: opts.onDone };
+  showRemote(tv, last.meta, opts.onDone);
+  paintTopBtn();
   return true;
 }
 
@@ -505,6 +553,19 @@ const homeRefresh = () => { if (home && home.el.querySelector(".cast-home")) ren
 /* ---------------- démarrage ---------------- */
 export function initCast(deps) {
   D = { ...D, ...deps };
+  if (canCast()) {
+    // Téléphone : bouton 📺 dans la barre du haut, sur toutes les pages
+    const right = document.querySelector(".topbar-right");
+    if (right && !document.getElementById("btn-cast")) {
+      topBtn = document.createElement("button");
+      topBtn.id = "btn-cast"; topBtn.className = "icon-btn cast-top"; topBtn.type = "button";
+      topBtn.innerHTML = "📺";
+      topBtn.onclick = phoneMenu;
+      right.insertBefore(topBtn, right.firstChild);
+      paintTopBtn();
+    }
+    return;
+  }
   if (!tvSide()) return;
   // Télé : bouton 📺 dans la barre du haut, code d'association, lecteur plein écran
   try { bridge().serve(); } catch { /* */ }
