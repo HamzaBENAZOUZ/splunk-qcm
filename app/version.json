@@ -1,9 +1,9 @@
 {
-  "versionCode": 23,
-  "versionName": "3.2",
+  "versionCode": 24,
+  "versionName": "3.3",
   "apk": "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/splunk-training.apk",
   "notes": {
-    "fr": "Mise à jour plus simple : avec cette version, le bouton « Mettre à jour » de l'alerte télécharge la nouvelle version dans l'appli puis ouvre directement l'installation d'Android. Il suffit de confirmer. La première fois, Android demande d'autoriser Splunk Training à installer des applications. L'APK est maintenant pris à une adresse fixe sur GitHub, qui donne toujours la dernière version.",
-    "en": "Easier updates: from this version on, the alert's “Update” button downloads the new version inside the app and opens Android's installer directly. Just confirm. The first time, Android asks you to allow Splunk Training to install apps. The APK now comes from a fixed GitHub address that always serves the latest version."
+    "fr": "Télé : choix de la voix. Le bouton 🗣 de la télécommande du téléphone liste les voix installées sur la télé, en français et en anglais, et la télé s'en souvient. Lecture plus fiable : si la voix de la télé ne signale pas la fin d'une phrase, la lecture continue quand même. S'il n'y a aucune voix sur la télé, un message l'indique sur la télé et sur le téléphone.",
+    "en": "TV: choose the voice. The 🗣 button on the phone remote lists the voices installed on the TV, in French and English, and the TV remembers your choice. More reliable playback: if the TV's voice doesn't signal the end of a sentence, reading goes on anyway. If the TV has no voice at all, a message says so on the TV and on the phone."
   }
 }

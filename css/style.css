@@ -963,3 +963,5 @@ body.cast-tv-on { overflow: hidden; }
 .cast-top.on { border-color: var(--cyan); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cyan) 25%, transparent); }
 .cast-menu { display: grid; gap: 10px; margin: 6px 0; }
 .cast-menu .btn { justify-content: flex-start; }
+.cast-voice { display: grid; gap: 6px; margin: 10px 0; }
+.cast-voice select { width: 100%; }
