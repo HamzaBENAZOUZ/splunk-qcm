@@ -31,7 +31,7 @@ const L = {
     homeHow: "Sur le téléphone : Books › un livre › 📺 Lire sur la télé.", homeFirst: "Première fois : choisis cette télé sur le téléphone, puis tape le code qui s'affichera ici.",
     homePaired: "Téléphone(s) associé(s) : {p}", homeManage: "Téléphones associés", homeLogin: "Se connecter sur la télé",
     menuT: "Télé", menuNone: "Aucune télé associée.", menuPair: "Associer une télé", menuChange: "Changer de télé",
-    menuRemote: "Ouvrir la télécommande", menuHint: "Ouvre un livre ou un chapitre (onglet Books) pour l'envoyer sur la télé.",
+    menuRemote: "Ouvrir la télécommande", lang: "Langue sur la télé (FR / EN)", relang: "Passage en {l} sur la télé…", trBg: "Traduction des chapitres suivants pour la télé…", menuHint: "Ouvre un livre ou un chapitre (onglet Books) pour l'envoyer sur la télé.",
   },
   en: {
     cast: "Play on TV", castTo: "Play on {n}", unpair: "Unpair the TV", unpairQ: "Unpair “{n}”? You will need to pair again with a code.",
@@ -53,7 +53,7 @@ const L = {
     homeHow: "On the phone: Books › a book › 📺 Play on TV.", homeFirst: "First time: pick this TV on the phone, then type the code that will show up here.",
     homePaired: "Paired phone(s): {p}", homeManage: "Paired phones", homeLogin: "Sign in on the TV",
     menuT: "TV", menuNone: "No TV paired.", menuPair: "Pair a TV", menuChange: "Change TV",
-    menuRemote: "Open the remote", menuHint: "Open a book or a chapter (Books tab) to send it to the TV.",
+    menuRemote: "Open the remote", lang: "Language on the TV (FR / EN)", relang: "Switching the TV to {l}…", trBg: "Translating the next chapters for the TV…", menuHint: "Open a book or a chapter (Books tab) to send it to the TV.",
   },
 };
 
@@ -239,7 +239,7 @@ async function phoneMenu() {
     const k = b.dataset.k;
     close();
     if (k === "send") await act.run(topBtn);
-    else if (k === "remote") showRemote(pairedTv() || tv, last.meta, last.onDone);
+    else if (k === "remote") showRemote(pairedTv() || tv, last);
     else if (k === "change") await pairDialog();
     else if (k === "unpair") await unpairTv();
     paintTopBtn();
@@ -247,10 +247,17 @@ async function phoneMenu() {
   const f = ov.querySelector("[data-k]"); if (f) f.focus();
 }
 
+/** Chapitre mis à jour (traduit en arrière-plan sur le téléphone) : remplacé dans le livre en cours sur la télé. */
+export async function sendChapter(bookId, ch) {
+  const r = await call("POST", "/chapter", { book: bookId, chapter: ch });
+  return r.status === 200;
+}
+
 /**
  * Envoie un livre préparé par l'onglet Books :
  * { id, title, author, ui, rate, start: n, pos, chapters: [{ n, title, lang, blocks: [{ k, x, s: [phrases] }] }] }
  * opts.onDone(bookId, [n…]) : chapitres écoutés jusqu'au bout sur la télé.
+ * opts.relang(lang, n, frac) : renvoyer le livre dans l'autre langue (bouton FR / EN de la télécommande).
  */
 export async function sendBook(pkg, opts = {}) {
   let tv = pairedTv() || await pairDialog();
@@ -259,8 +266,8 @@ export async function sendBook(pkg, opts = {}) {
   if (r.status !== 200) { if (r.status !== 401) D.toast(t("noTv"), "err"); return false; }
   tv = pairedTv() || tv;
   D.toast(r.data.open === false ? t("openTv") : t("sent", { n: tv.name || "TV" }), r.data.open === false ? "warn" : "ok");
-  last = { meta: { id: pkg.id, title: pkg.title, rate: pkg.rate }, onDone: opts.onDone };
-  showRemote(tv, last.meta, opts.onDone);
+  last = { meta: { id: pkg.id, title: pkg.title, rate: pkg.rate, lang: pkg.lang }, onDone: opts.onDone, relang: opts.relang };
+  showRemote(tv, last);
   paintTopBtn();
   return true;
 }
@@ -273,8 +280,9 @@ function hideRemote() {
   remote = null;
 }
 
-function showRemote(tv, pkg, onDone) {
+function showRemote(tv, ctx) {
   hideRemote();
+  const pkg = ctx.meta, onDone = ctx.onDone;
   const el = document.createElement("div");
   el.className = "cast-bar panel";
   el.setAttribute("role", "region");
@@ -290,13 +298,14 @@ function showRemote(tv, pkg, onDone) {
       <button class="icon-btn" data-c="slower" title="${esc(t("slower"))}" aria-label="${esc(t("slower"))}">−</button>
       <span class="mono cast-rate" id="cast-rate"></span>
       <button class="icon-btn" data-c="faster" title="${esc(t("faster"))}" aria-label="${esc(t("faster"))}">+</button>
+      ${ctx.relang ? `<button class="btn btn-ghost btn-xs mono cast-lang" data-c="lang" title="${esc(t("lang"))}" aria-label="${esc(t("lang"))}">${esc((pkg.lang || "en").toUpperCase())}</button>` : ""}
       <button class="icon-btn" data-c="stop" title="${esc(t("stop"))}" aria-label="${esc(t("stop"))}">⏹</button>
       <button class="icon-btn" data-c="hide" title="${esc(t("hide"))}" aria-label="${esc(t("hide"))}">✕</button>
     </div>`;
   document.body.appendChild(el);
   document.body.classList.add("cast-remote-on");
   const seen = new Set();
-  remote = { el, onDone, book: pkg.id, timer: 0, rate: pkg.rate || 1 };
+  remote = { el, onDone, book: pkg.id, timer: 0, rate: pkg.rate || 1, st: null };
   const paint = s => {
     if (!remote || remote.el !== el) return;
     if (!s || s.closed) { el.querySelector("#cast-bar-s").textContent = t("stopped"); return; }
@@ -304,7 +313,9 @@ function showRemote(tv, pkg, onDone) {
     if (s.title) el.querySelector("#cast-bar-t").textContent = `${s.title} · ${s.ch || ""}`;
     el.querySelector("#cast-bar-s").textContent = s.finished ? t("tvDone")
       : `${s.playing ? "▶" : "⏸"} ${t("chapter")} ${s.n} (${(s.ci ?? 0) + 1}/${s.nCh || "?"}) · ${(s.k ?? 0) + 1}/${s.total || "?"}`;
+    remote.st = s;
     if (s.rate) { remote.rate = s.rate; el.querySelector("#cast-rate").textContent = s.rate + "×"; }
+    const lb = el.querySelector(".cast-lang"); if (lb && s.lang) lb.textContent = s.lang.toUpperCase();
     const main = el.querySelector(".cast-main");
     main.textContent = s.playing ? "⏸" : "▶"; main.title = main.ariaLabel = t(s.playing ? "pause" : "play");
     const fresh = (s.done || []).filter(n => !seen.has(n));
@@ -320,6 +331,13 @@ function showRemote(tv, pkg, onDone) {
     const a = e.target.closest("[data-c]"); if (!a) return;
     const c = a.dataset.c;
     if (c === "hide") return hideRemote();
+    if (c === "lang") {
+      // l'autre langue : le téléphone prépare (et traduit si besoin) le livre, puis le renvoie à la même place
+      const st = remote.st || {}, cur = st.lang || pkg.lang || "en", to = cur === "fr" ? "en" : "fr";
+      a.disabled = true; D.toast(t("relang", { l: to.toUpperCase() }), "info");
+      try { await ctx.relang(to, st.n ?? null, st.total ? (st.k || 0) / st.total : 0); } finally { if (a.isConnected) a.disabled = false; }
+      return;
+    }
     let body = { c };
     if (c === "slower" || c === "faster") body = { c: "rate", v: Math.round(Math.min(2.5, Math.max(0.5, remote.rate + (c === "faster" ? 0.1 : -0.1))) * 100) / 100 };
     const r = await call("POST", "/cmd", body);
@@ -338,7 +356,7 @@ function tvReport(extra) {
   if (tvp) {
     const ch = tvp.pkg.chapters[tvp.ci];
     s = { book: tvp.pkg.id, title: tvp.pkg.title, n: ch.n, ch: ch.title, ci: tvp.ci, nCh: tvp.pkg.chapters.length,
-      k: tvp.k, total: tvp.segs.length, playing: tvp.playing, rate: tvp.rate, done: [...tvp.done], finished: !!tvp.finished };
+      k: tvp.k, total: tvp.segs.length, playing: tvp.playing, rate: tvp.rate, done: [...tvp.done], finished: !!tvp.finished, lang: ch.lang || "en" };
   }
   try { b.state(JSON.stringify({ ...s, ...(extra || {}) })); } catch { /* */ }
 }
@@ -358,6 +376,7 @@ function tvOpen(pkg) {
   let ci = Math.max(0, pkg.chapters.findIndex(c => c.n === pkg.start));
   tvp = { pkg, ci, k: 0, segs: [], playing: false, token: 0, rate: +pkg.rate || 1, done: new Set(), el, finished: false };
   tvChapter(ci, Math.max(0, +pkg.pos || 0));
+  if (pkg.frac > 0) tvp.k = Math.min(tvp.segs.length - 1, Math.floor(pkg.frac * tvp.segs.length));   // changement de langue : même endroit
   tvPlay(tvp.k);
 }
 
@@ -476,6 +495,26 @@ function tvCmd(c, v) {
   if (c === "stop") return tvStop();
 }
 
+/** Chapitre traduit envoyé après coup par le téléphone : remplacé ; si c'est celui qui est lu, il reprend au même endroit. */
+function tvTakeChapters() {
+  const b = bridge(); if (!b || typeof b.takeChapter !== "function") return;
+  for (let s; (s = b.takeChapter()); ) {
+    let m; try { m = JSON.parse(s); } catch { continue; }
+    const P = tvp;
+    if (!P || !m || m.book !== P.pkg.id || !m.chapter) continue;
+    const i = P.pkg.chapters.findIndex(c => c.n === m.chapter.n);
+    if (i < 0) continue;
+    P.pkg.chapters[i] = m.chapter;
+    if (i !== P.ci) continue;
+    const frac = P.segs.length ? P.k / P.segs.length : 0, was = P.playing;
+    P.token++; try { D.tts.stop(); } catch { /* */ }
+    P.playing = false;
+    tvChapter(i, 0);
+    P.k = Math.min(P.segs.length - 1, Math.floor(frac * P.segs.length));
+    was ? tvPlay(P.k) : tvPaint();
+  }
+}
+
 function tvTake() {
   const b = bridge(); if (!b) return;
   let s = ""; try { s = b.takePending(); } catch { /* */ }
@@ -581,6 +620,7 @@ export function initCast(deps) {
   on("codeEnd", d => { tvHideCode(); if (d && d.phone) D.toast(t("tvPaired", { p: d.phone }), "ok"); if (panel) tvPanel(); homeRefresh(); });
   on("phones", () => { if (panel) tvPanel(); homeRefresh(); });
   on("play", tvTake);
+  on("chapter", tvTakeChapters);
   on("cmd", d => d && tvCmd(d.c, d.v));
   window.__castBack = () => { if (codeEl) return tvHideCode(); tvStop(); };
   window.__castWake = () => {
