@@ -66,7 +66,7 @@ const L = {
     trWait: "Le service de traduction limite les demandes : reprise dans {s} s…",
     trOnline: "Traduction automatique en ligne (service de traduction de Google) : le texte peut contenir des erreurs.",
     trDevice: "Traduction automatique sur le téléphone : le texte peut contenir des erreurs.",
-    chain: "Enchaîner automatiquement le chapitre suivant", backLib: "Bibliothèque",
+    chain: "Enchaîner automatiquement le chapitre suivant", awake: "Garder l'écran allumé pendant l'écoute", backLib: "Bibliothèque",
     bgT: "Écoute écran éteint", bgOk: "Prêt : la lecture continue appli fermée ou téléphone verrouillé, avec la notification de lecture.",
     bgNotif: "Notifications coupées : la commande lecture / pause n'apparaîtra pas en haut de l'écran.", bgNotifB: "Autoriser les notifications",
     bgBat: "Le téléphone peut couper la lecture quand l'écran est éteint.", bgBatB: "Batterie sans restriction",
@@ -122,7 +122,7 @@ const L = {
     trWait: "The translation service is limiting requests: resuming in {s} s…",
     trOnline: "Online machine translation (Google's translation service): the text may contain mistakes.",
     trDevice: "Machine translation on the phone: the text may contain mistakes.",
-    chain: "Automatically continue with the next chapter", backLib: "Library",
+    chain: "Automatically continue with the next chapter", awake: "Keep the screen on while listening", backLib: "Library",
     bgT: "Screen-off listening", bgOk: "Ready: reading goes on with the app closed or the phone locked, with the playback notification.",
     bgNotif: "Notifications are off: the play / pause control will not show at the top of the screen.", bgNotifB: "Allow notifications",
     bgBat: "The phone may stop reading when the screen is off.", bgBatB: "Unrestricted battery",
@@ -145,6 +145,32 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   if (typeof prefs.chain !== "boolean") prefs.chain = !!window.AndroidMedia;   // appli : écoute enchaînée (voiture, écran éteint)
   // Écoute en arrière-plan dans l'appli Android : notification, écran verrouillé, boutons Bluetooth / volant / télécommande.
   const media = () => window.AndroidMedia || null;
+  if (typeof prefs.awake !== "boolean") prefs.awake = true;
+  // Écran allumé pendant l'écoute : l'appli Android garde l'écran allumé tant que la voix lit (FLAG_KEEP_SCREEN_ON),
+  // le navigateur utilise la Screen Wake Lock API. Relâché à la pause, à l'arrêt et à la fin du chapitre.
+  let awakeWant = false, wakeLock = null, wakeAsking = false;
+  const askLock = () => {
+    if (wakeLock || wakeAsking || !navigator.wakeLock || document.visibilityState !== "visible") return;
+    wakeAsking = true;
+    navigator.wakeLock.request("screen").then(l => {
+      wakeAsking = false;
+      if (!awakeWant) return l.release().catch(() => {});
+      wakeLock = l; l.addEventListener("release", () => { if (wakeLock === l) wakeLock = null; });
+    }).catch(() => { wakeAsking = false; /* refusé (économie d'énergie, onglet caché) */ });
+  };
+  const screenAwake = on => {
+    on = !!on && prefs.awake;
+    const m = media();
+    if (m && typeof m.screen === "function") {
+      if (on !== awakeWant) { awakeWant = on; try { m.screen(on); } catch { /* */ } }
+      return;
+    }
+    awakeWant = on;
+    if (on) askLock();
+    else if (wakeLock) { const l = wakeLock; wakeLock = null; l.release().catch(() => {}); }
+  };
+  // le navigateur relâche le verrou quand l'onglet est caché : on le reprend au retour si la lecture continue
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && awakeWant) askLock(); });
   let mediaCtl = null;
   window.__mediaCmd = cmd => { if (mediaCtl && mediaCtl[cmd]) mediaCtl[cmd](); };
   addEventListener("keydown", e => {
@@ -782,6 +808,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
         <div class="row bk-set-pre">${RATE_PRESETS.map(x => `<button class="seg-btn mono" data-rate="${x}">${x}×</button>`).join("")}</div>
       </div>
       <label class="bk-set-chain"><input type="checkbox" id="bk-chain"> <span>${esc(t("chain"))}</span></label>
+      <label class="bk-set-chain"><input type="checkbox" id="bk-awake"> <span>${esc(t("awake"))}</span></label>
       ${window.AndroidListen ? `<div class="bk-set-bg" id="bk-bg"></div>` : ""}
       <div class="bk-set-f"><span class="mono muted">${esc(t("para"))}</span>
         <div class="row"><button class="btn btn-ghost btn-sm" data-pl="prevp" title="${esc(t("prevP"))}">⏪ ${esc(t("pPrev"))}</button>
@@ -1080,6 +1107,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       main.textContent = player.playing ? "⏸" : "▶";
       main.title = main.ariaLabel = t(player.playing ? "pause" : "play");
       bar.querySelector("#bk-pl-rate").textContent = prefs.rate + "×";
+      screenAwake(on && player.playing);
       const m = media();
       if (m) try {
         if (on) m.update(!!player.playing, pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`, `${pick(b, "title", uiLang())} · ${t("chapter")} ${ch.n}`);
@@ -1210,6 +1238,9 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     const chain = set.querySelector("#bk-chain");
     chain.checked = prefs.chain;
     chain.onchange = () => { prefs.chain = chain.checked; savePrefs(); };
+    const awake = set.querySelector("#bk-awake");
+    awake.checked = prefs.awake;
+    awake.onchange = () => { prefs.awake = awake.checked; savePrefs(); screenAwake(false); if (player && player.playing) screenAwake(true); };
     // Commandes venues de la notification, de l'écran verrouillé, du casque, du volant ou de la télécommande
     mediaCtl = {
       toggle: () => (bar.hidden ? open() : player.playing ? pause() : play(player.i)),
@@ -1224,6 +1255,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   function stop() {
     mediaCtl = null;
     if (player) { player.token++; player.playing = false; player = null; tts.stop(); const m = media(); if (m) try { m.end(); } catch { /* */ } }
+    screenAwake(false);
     clearHL();
     document.body.classList.remove("bk-playing", "bk-set-on");
   }

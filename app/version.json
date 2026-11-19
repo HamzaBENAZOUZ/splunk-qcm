@@ -1,9 +1,9 @@
 {
-  "versionCode": 16,
-  "versionName": "2.5",
-  "apk": "app/splunk-training-v2.5.apk",
+  "versionCode": 17,
+  "versionName": "2.6",
+  "apk": "app/splunk-training-v2.6.apk",
   "notes": {
-    "fr": "Temps estimé devant le bouton de lecture des livres : 📖 lecture à l'œil et 🎧 écoute à voix haute (selon ta vitesse de lecture), dans la bibliothèque, sur la page du livre, dans le sommaire et en haut de chaque chapitre. Aussi en mode télé, et dans Android Auto (durée d'écoute de chaque chapitre et du livre).",
-    "en": "Estimated time next to the books' read button: 📖 reading and 🎧 listening (at your speech speed), in the library, on the book page, in the contents and at the top of each chapter. Also in TV mode, and in Android Auto (listening time per chapter and per book)."
+    "fr": "L'écran reste allumé pendant l'écoute d'un livre : le téléphone ne se verrouille plus tant que la voix lit, et redevient normal à la pause ou à l'arrêt. Réglable dans les réglages de lecture (« Garder l'écran allumé pendant l'écoute »). Tu peux toujours éteindre l'écran avec le bouton marche/arrêt : la lecture continue en arrière-plan.",
+    "en": "The screen stays on while a book is read aloud: the phone no longer locks while the voice is reading, and goes back to normal on pause or stop. Can be turned off in the reading settings (\"Keep the screen on while listening\"). You can still turn the screen off with the power button: playback goes on in the background."
   }
 }
