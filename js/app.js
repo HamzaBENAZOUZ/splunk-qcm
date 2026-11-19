@@ -4,6 +4,7 @@ import { offlineEnabled, registerSW, unregisterSW, autonomous, setAutonomous } f
 import { createSuivi } from "./suivi.js";
 import { createBooks } from "./books.js";
 import { initTV } from "./tv.js";
+import { initCast } from "./cast.js";
 import { forEar } from "./speech.js";
 
 /** Vrai dans l'application Android (pont vocal AndroidTTS fourni par l'APK). */
@@ -359,6 +360,7 @@ async function showVersion() {
 
 async function boot() {
   initTV();
+  initCast({ getLang, esc, toast, tts: TTS });     // Google TV : téléphone ↔ télé associée (appli Android seulement)
   checkUpdate();
   showVersion();
   setTheme(currentTheme());

@@ -9,6 +9,7 @@
 import { idbGet, idbSet, isNetErr, withTimeout } from "./offline.js";
 import * as src from "./doc-files.js";
 import { forEar, codeForEar, SPEECH_V } from "./speech.js";
+import { canCast, pairedTv, sendBook, unpairTv } from "./cast.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
 const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:", WC = "splunk-books-words";
@@ -73,6 +74,7 @@ const L = {
     car: "Écouter dans la voiture (Android Auto)", carUpd: "Mettre à jour dans la voiture", carIn: "Dans la voiture",
     carBusy: "Envoi vers la voiture… {i}/{n}", carOk: "« {t} » est prêt dans Android Auto", carRm: "Retirer de la voiture",
     carRmOk: "Livre retiré d'Android Auto", carErr: "Envoi vers la voiture impossible", carRead: "{n} chapitre(s) écouté(s) en voiture marqué(s) comme lu(s)",
+    tv: "Lire sur la télé", tvTo: "Lire sur {n}", tvShort: "Télé", tvUn: "Dissocier la télé", tvBusy: "Préparation pour la télé… {i}/{n}", tvRead: "{n} chapitre(s) écouté(s) sur la télé marqué(s) comme lu(s)",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -129,6 +131,7 @@ const L = {
     car: "Listen in the car (Android Auto)", carUpd: "Update in the car", carIn: "In the car",
     carBusy: "Sending to the car… {i}/{n}", carOk: "“{t}” is ready in Android Auto", carRm: "Remove from the car",
     carRmOk: "Book removed from Android Auto", carErr: "Could not send to the car", carRead: "{n} chapter(s) listened to in the car marked as read",
+    tv: "Play on TV", tvTo: "Play on {n}", tvShort: "TV", tvUn: "Unpair the TV", tvBusy: "Preparing for the TV… {i}/{n}", tvRead: "{n} chapter(s) listened to on the TV marked as read",
   },
 };
 
@@ -388,6 +391,57 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     if (list.length) { saveP(); if (n) toast(t("carRead", { n }), "ok"); }
   }
 
+  /* ---------------- Google TV ---------------- */
+  // Dans l'appli Android, un livre peut être lu sur la Google TV associée (voir js/cast.js) : le texte part sous forme
+  // de blocs (titre, paragraphe, élément de liste, code) avec les phrases à lire, la télé l'affiche et le lit elle-même.
+  /** Blocs d'un chapitre pour la télé : { k: "h3"|"p"|"li"|"pre", x: texte affiché, s: phrases lues }. */
+  function blocksOf(html, lang) {
+    const doc = new DOMParser().parseFromString(`<div>${html || ""}</div>`, "text/html"), out = [];
+    doc.querySelectorAll("h3, p, li, pre").forEach(el => {
+      if (el.tagName === "PRE") { const x = el.textContent || "", s = codeForEar(x, lang); out.push({ k: "pre", x, s: s ? [s] : [] }); return; }
+      if (el.closest("pre") || (el.tagName === "P" && el.closest("li"))) return;
+      let raw = el.textContent || "";
+      if (el.tagName === "LI" && el.querySelector("ul,ol")) {
+        const c = el.cloneNode(true); c.querySelectorAll("ul,ol").forEach(x => x.remove()); raw = c.textContent || "";
+      }
+      const s = [];
+      for (const [a, z] of sentences(raw, lang)) { const txt = cleanSpeech(raw.slice(a, z)); if (txt) s.push(txt); }
+      const x = raw.replace(/\s+/g, " ").trim();
+      if (x) out.push({ k: el.tagName.toLowerCase(), x, s });
+    });
+    return out;
+  }
+  async function tvPkg(b, start, onStep) {
+    const u = upl(b), want = u ? voiceOf(b) : cLang(), chapters = [];
+    for (let i = 0; i < b.chapters.length; i++) {
+      onStep && onStep(i + 1, b.chapters.length);
+      const ch = await loadChapter(b, b.chapters[i].n);
+      const lang = u ? want : (want === "fr" && ch.html_fr ? "fr" : "en");
+      const html = u ? ch.html_en : (lang === "fr" ? ch.html_fr : ch.html_en);
+      const title = pick(ch, "title", lang) || `${t("chapter")} ${ch.n}`;
+      chapters.push({ n: ch.n, title, lang, blocks: [{ k: "h1", x: title, s: [title] }, ...blocksOf(html, lang)] });
+    }
+    return { id: b.id, title: pick(b, "title", want), author: b.author || "", ui: uiLang(), rate: prefs.rate,
+      start, pos: P.pos[b.id + "|" + start] || 0, chapters };
+  }
+  /** Chapitres écoutés jusqu'au bout sur la télé : marqués comme lus ici (et synchronisés). */
+  function tvDone(id, ns) {
+    let k = 0;
+    for (const n of ns) { const r = rec(id, n); if (!r.r) { r.r = Date.now(); k++; } P.dirty[id + "|" + n] = 1; }
+    saveP(); if (k) toast(t("tvRead", { n: k }), "ok");
+  }
+  async function toTv(b, n, btn) {
+    stop();
+    const old = btn.innerHTML; btn.disabled = true;
+    try {
+      const pkg = await tvPkg(b, n, (i, k) => { btn.textContent = "⏳ " + t("tvBusy", { i, n: k }); });
+      btn.textContent = "⏳ 📺";
+      await sendBook(pkg, { onDone: tvDone });
+    } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
+    if (btn.isConnected) { btn.disabled = false; btn.innerHTML = old; }
+  }
+  const tvLabel = () => { const tv = pairedTv(); return tv ? t("tvTo", { n: tv.name || t("tvShort") }) : t("tv"); };
+
   /* ---------------- progression ---------------- */
   const rec = (id, n) => ((P.books[id] ||= {})[n] ||= {});
   function saveP(id, n) {
@@ -558,6 +612,8 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
             return `<div class="row bk-car">${v ? `<span class="bk-dl-ok mono">🚗 ${esc(t("carIn"))}${fresh ? " ✓" : ""}</span>` : ""}
               ${fresh ? "" : `<button class="btn btn-ghost btn-sm" id="bk-car" ${canDl || downloaded(b) ? "" : "disabled"}>🚗 ${esc(v ? t("carUpd") : t("car"))}</button>`}
               ${v ? `<button class="btn btn-ghost btn-xs" id="bk-car-rm">${esc(t("carRm"))}</button>` : ""}</div>`; })() : ""}
+          ${canCast() ? `<div class="row bk-cast"><button class="btn btn-ghost btn-sm" id="bk-tv" ${canDl || downloaded(b) ? "" : "disabled"}>📺 ${esc(tvLabel())}</button>
+            ${pairedTv() ? `<button class="btn btn-ghost btn-xs" id="bk-tv-un">${esc(t("tvUn"))}</button>` : ""}</div>` : ""}
           ${canDl ? `<p class="bk-del-row"><button class="btn btn-ghost btn-sm bk-del" id="bk-del">🗑 ${esc(t("del"))}</button></p>` : ""}
         </div>
       </header>
@@ -592,6 +648,10 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     };
     const cr = root.querySelector("#bk-car-rm");
     if (cr) cr.onclick = () => { try { car().removeBook(b.id); toast(t("carRmOk"), "ok"); } catch { /* */ } renderBook(b); };
+    const tvb = root.querySelector("#bk-tv");
+    if (tvb) tvb.onclick = async () => { await toTv(b, n, tvb); if (root.querySelector("#bk-tv") === tvb) renderBook(b); };
+    const tvu = root.querySelector("#bk-tv-un");
+    if (tvu) tvu.onclick = async () => { if (await unpairTv()) renderBook(b); };
     if (upl(b)) bookSource(b);
   }
 
@@ -774,6 +834,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
           ${(w => `<span class="bk-eta mono" data-w="${w}">${etaHtml(w)}</span>`)(countWords(html))}
           ${tts.can ? `<button class="btn btn-primary btn-sm" id="bk-listen">🔊 ${esc(pos ? t("resume") : t("listen"))}</button>
             <button class="btn btn-ghost btn-sm" id="bk-set-open" title="${esc(t("settings"))}">⚙ ${esc(t("settings"))}</button>` : ""}
+          ${canCast() ? `<button class="btn btn-ghost btn-sm" id="bk-tv" title="${esc(tvLabel())}">📺 ${esc(t("tvShort"))}</button>` : ""}
           ${r.r ? `<span class="bk-read-tag mono">✓ ${esc(t("isRead"))}</span>` : ""}
         </div>
       </header>
@@ -836,6 +897,8 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       root.querySelector(".bk-reader").style.setProperty("--bk-font", prefs.font);
     });
     const mark = () => { if (!rec(b.id, n).r) { rec(b.id, n).r = Date.now(); saveP(b.id, n); } };
+    const tvb = root.querySelector("#bk-tv");
+    if (tvb) tvb.onclick = () => toTv(b, n, tvb);
     const mk = root.querySelector("#bk-mark");
     if (mk) mk.onclick = () => { mark(); renderChapter(b, ch); };
     // Arrivé en bas du chapitre : il compte comme lu.
