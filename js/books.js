@@ -9,7 +9,7 @@
 import { idbGet, idbSet, isNetErr, withTimeout } from "./offline.js";
 import * as src from "./doc-files.js";
 import { forEar, codeForEar, SPEECH_V } from "./speech.js";
-import { canCast, pairedTv, sendBook, unpairTv } from "./cast.js";
+import { canCast, sendBook, setCastAction } from "./cast.js";
 
 const T_BOOKS = "splunk_books", T_CH = "splunk_book_chapters", T_PROG = "splunk_book_progress";
 const PKEY = "splunk-books-v1", PREF = "splunk-books-prefs", DL = "splunk-books-dl:", WC = "splunk-books-words";
@@ -74,7 +74,7 @@ const L = {
     car: "Écouter dans la voiture (Android Auto)", carUpd: "Mettre à jour dans la voiture", carIn: "Dans la voiture",
     carBusy: "Envoi vers la voiture… {i}/{n}", carOk: "« {t} » est prêt dans Android Auto", carRm: "Retirer de la voiture",
     carRmOk: "Livre retiré d'Android Auto", carErr: "Envoi vers la voiture impossible", carRead: "{n} chapitre(s) écouté(s) en voiture marqué(s) comme lu(s)",
-    tv: "Lire sur la télé", tvTo: "Lire sur {n}", tvShort: "Télé", tvUn: "Dissocier la télé", tvBusy: "Préparation pour la télé… {i}/{n}", tvRead: "{n} chapitre(s) écouté(s) sur la télé marqué(s) comme lu(s)",
+    tvBook: "Lire « {t} » sur la télé", tvCh: "Lire sur la télé à partir du chapitre {n}", tvBusy: "Préparation pour la télé… {i}/{n}", tvRead: "{n} chapitre(s) écouté(s) sur la télé marqué(s) comme lu(s)",
   },
   en: {
     lib: "Library", libSub: "Your books: read, listen and take a quiz at the end of every chapter.",
@@ -131,7 +131,7 @@ const L = {
     car: "Listen in the car (Android Auto)", carUpd: "Update in the car", carIn: "In the car",
     carBusy: "Sending to the car… {i}/{n}", carOk: "“{t}” is ready in Android Auto", carRm: "Remove from the car",
     carRmOk: "Book removed from Android Auto", carErr: "Could not send to the car", carRead: "{n} chapter(s) listened to in the car marked as read",
-    tv: "Play on TV", tvTo: "Play on {n}", tvShort: "TV", tvUn: "Unpair the TV", tvBusy: "Preparing for the TV… {i}/{n}", tvRead: "{n} chapter(s) listened to on the TV marked as read",
+    tvBook: "Play “{t}” on the TV", tvCh: "Play on the TV from chapter {n}", tvBusy: "Preparing for the TV… {i}/{n}", tvRead: "{n} chapter(s) listened to on the TV marked as read",
   },
 };
 
@@ -434,13 +434,12 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     stop();
     const old = btn.innerHTML; btn.disabled = true;
     try {
-      const pkg = await tvPkg(b, n, (i, k) => { btn.textContent = "⏳ " + t("tvBusy", { i, n: k }); });
+      const pkg = await tvPkg(b, n, (i, k) => { btn.textContent = btn.classList.contains("cast-top") ? `⏳ ${i}/${k}` : "⏳ " + t("tvBusy", { i, n: k }); });
       btn.textContent = "⏳ 📺";
       await sendBook(pkg, { onDone: tvDone });
     } catch (e) { console.error(e); toast(e.message || String(e), "err"); }
     if (btn.isConnected) { btn.disabled = false; btn.innerHTML = old; }
   }
-  const tvLabel = () => { const tv = pairedTv(); return tv ? t("tvTo", { n: tv.name || t("tvShort") }) : t("tv"); };
 
   /* ---------------- progression ---------------- */
   const rec = (id, n) => ((P.books[id] ||= {})[n] ||= {});
@@ -507,6 +506,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   /* ---------------- rendu ---------------- */
   async function render(el, hash = location.hash) {
     root = el;
+    setCastAction(null);
     carProgress();
     const parts = hash.replace(/^#\/?/, "").split("/").slice(1).map(decodeURIComponent);
     const [id, nStr, sub] = parts;
@@ -612,8 +612,6 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
             return `<div class="row bk-car">${v ? `<span class="bk-dl-ok mono">🚗 ${esc(t("carIn"))}${fresh ? " ✓" : ""}</span>` : ""}
               ${fresh ? "" : `<button class="btn btn-ghost btn-sm" id="bk-car" ${canDl || downloaded(b) ? "" : "disabled"}>🚗 ${esc(v ? t("carUpd") : t("car"))}</button>`}
               ${v ? `<button class="btn btn-ghost btn-xs" id="bk-car-rm">${esc(t("carRm"))}</button>` : ""}</div>`; })() : ""}
-          ${canCast() ? `<div class="row bk-cast"><button class="btn btn-ghost btn-sm" id="bk-tv" ${canDl || downloaded(b) ? "" : "disabled"}>📺 ${esc(tvLabel())}</button>
-            ${pairedTv() ? `<button class="btn btn-ghost btn-xs" id="bk-tv-un">${esc(t("tvUn"))}</button>` : ""}</div>` : ""}
           ${canDl ? `<p class="bk-del-row"><button class="btn btn-ghost btn-sm bk-del" id="bk-del">🗑 ${esc(t("del"))}</button></p>` : ""}
         </div>
       </header>
@@ -648,10 +646,8 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     };
     const cr = root.querySelector("#bk-car-rm");
     if (cr) cr.onclick = () => { try { car().removeBook(b.id); toast(t("carRmOk"), "ok"); } catch { /* */ } renderBook(b); };
-    const tvb = root.querySelector("#bk-tv");
-    if (tvb) tvb.onclick = async () => { await toTv(b, n, tvb); if (root.querySelector("#bk-tv") === tvb) renderBook(b); };
-    const tvu = root.querySelector("#bk-tv-un");
-    if (tvu) tvu.onclick = async () => { if (await unpairTv()) renderBook(b); };
+    // bouton 📺 du haut : envoie le livre (à partir du prochain chapitre à lire)
+    if (canCast() && (canDl || downloaded(b))) setCastAction({ label: t("tvBook", { t: pick(b, "title", ul) }), run: btn => toTv(b, n, btn) });
     if (upl(b)) bookSource(b);
   }
 
@@ -834,7 +830,6 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
           ${(w => `<span class="bk-eta mono" data-w="${w}">${etaHtml(w)}</span>`)(countWords(html))}
           ${tts.can ? `<button class="btn btn-primary btn-sm" id="bk-listen">🔊 ${esc(pos ? t("resume") : t("listen"))}</button>
             <button class="btn btn-ghost btn-sm" id="bk-set-open" title="${esc(t("settings"))}">⚙ ${esc(t("settings"))}</button>` : ""}
-          ${canCast() ? `<button class="btn btn-ghost btn-sm" id="bk-tv" title="${esc(tvLabel())}">📺 ${esc(t("tvShort"))}</button>` : ""}
           ${r.r ? `<span class="bk-read-tag mono">✓ ${esc(t("isRead"))}</span>` : ""}
         </div>
       </header>
@@ -897,8 +892,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       root.querySelector(".bk-reader").style.setProperty("--bk-font", prefs.font);
     });
     const mark = () => { if (!rec(b.id, n).r) { rec(b.id, n).r = Date.now(); saveP(b.id, n); } };
-    const tvb = root.querySelector("#bk-tv");
-    if (tvb) tvb.onclick = () => toTv(b, n, tvb);
+    if (canCast()) setCastAction({ label: t("tvCh", { n }), run: btn => toTv(b, n, btn) });
     const mk = root.querySelector("#bk-mark");
     if (mk) mk.onclick = () => { mark(); renderChapter(b, ch); };
     // Arrivé en bas du chapitre : il compte comme lu.

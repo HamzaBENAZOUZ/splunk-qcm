@@ -959,3 +959,7 @@ body.cast-tv-on { overflow: hidden; }
 .cast-home-name strong { font-size: 1.25rem; }
 .cast-home-ph { color: var(--cyan); }
 .cast-home-acts { gap: 12px; margin-top: 18px; }
+.cast-top { width: auto; min-width: 36px; padding: 0 8px; white-space: nowrap; }
+.cast-top.on { border-color: var(--cyan); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cyan) 25%, transparent); }
+.cast-menu { display: grid; gap: 10px; margin: 6px 0; }
+.cast-menu .btn { justify-content: flex-start; }
