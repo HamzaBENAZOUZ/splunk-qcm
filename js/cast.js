@@ -31,7 +31,7 @@ const L = {
     homeHow: "Sur le téléphone : Books › un livre › 📺 Lire sur la télé.", homeFirst: "Première fois : choisis cette télé sur le téléphone, puis tape le code qui s'affichera ici.",
     homePaired: "Téléphone(s) associé(s) : {p}", homeManage: "Téléphones associés", homeLogin: "Se connecter sur la télé",
     menuT: "Télé", menuNone: "Aucune télé associée.", menuPair: "Associer une télé", menuChange: "Changer de télé",
-    voiceT: "Voix de la télé", voiceAuto: "Automatique (meilleure voix)", voiceFr: "Voix française", voiceEn: "Voix anglaise",
+    voiceT: "Voix de la télé", voiceBtn: "Voix", voiceOf: "Voix pour le texte en {l}", voiceAuto: "Automatique (meilleure voix)", voiceFr: "Voix française", voiceEn: "Voix anglaise",
     voiceNone: "Aucune voix trouvée sur la télé. Installe ou mets à jour « Services vocaux Google » sur la télé.", voiceOk: "Voix changée sur la télé",
     noTts: "Pas de synthèse vocale sur cette télé : installe « Services vocaux Google » (Play Store de la télé).",
     menuRemote: "Ouvrir la télécommande", lang: "Langue sur la télé (FR / EN)", relang: "Passage en {l} sur la télé…", trBg: "Traduction des chapitres suivants pour la télé…", menuHint: "Ouvre un livre ou un chapitre (onglet Books) pour l'envoyer sur la télé.",
@@ -56,7 +56,7 @@ const L = {
     homeHow: "On the phone: Books › a book › 📺 Play on TV.", homeFirst: "First time: pick this TV on the phone, then type the code that will show up here.",
     homePaired: "Paired phone(s): {p}", homeManage: "Paired phones", homeLogin: "Sign in on the TV",
     menuT: "TV", menuNone: "No TV paired.", menuPair: "Pair a TV", menuChange: "Change TV",
-    voiceT: "TV voice", voiceAuto: "Automatic (best voice)", voiceFr: "French voice", voiceEn: "English voice",
+    voiceT: "TV voice", voiceBtn: "Voice", voiceOf: "Voice for {l} text", voiceAuto: "Automatic (best voice)", voiceFr: "French voice", voiceEn: "English voice",
     voiceNone: "No voice found on the TV. Install or update “Speech Services by Google” on the TV.", voiceOk: "Voice changed on the TV",
     noTts: "No text-to-speech on this TV: install “Speech Services by Google” (TV Play Store).",
     menuRemote: "Open the remote", lang: "Language on the TV (FR / EN)", relang: "Switching the TV to {l}…", trBg: "Translating the next chapters for the TV…", menuHint: "Open a book or a chapter (Books tab) to send it to the TV.",
@@ -440,6 +440,7 @@ function tvChapter(ci, k = 0) {
       <button class="btn btn-ghost" data-c="next" title="${esc(t("nextS"))}">⏩</button>
       <button class="btn btn-ghost" data-c="nextch" title="${esc(t("nextCh"))}">⏭</button>
       <span class="mono muted cast-rate" id="cast-tv-rate"></span>
+      <button class="btn btn-ghost" data-c="voices" title="${esc(t("voiceT"))}">🗣 ${esc(t("voiceBtn"))}</button>
       <button class="btn btn-ghost" data-c="stop" title="${esc(t("close"))}">✕ ${esc(t("close"))}</button>
     </nav>`;
   P.el.querySelector(".cast-ctl").onclick = e => { const a = e.target.closest("[data-c]"); if (a) tvCmd(a.dataset.c); };
@@ -457,7 +458,7 @@ function tvPaint() {
     if (b) {
       b.classList.add("bk-say");
       const r = b.getBoundingClientRect();
-      if (r.top < innerHeight * 0.2 || r.bottom > innerHeight * 0.75) b.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (r.top < innerHeight * 0.2 || r.bottom > innerHeight * 0.62) b.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   }
   const pos = P.el.querySelector("#cast-pos");
@@ -544,7 +545,31 @@ function tvCmd(c, v) {
     return was ? tvPlay(0) : tvPaint();
   }
   if (c === "rate") { P.rate = Math.round(Math.min(2.5, Math.max(0.5, +v || 1)) * 100) / 100; return P.playing ? tvPlay(P.k) : tvPaint(); }
+  if (c === "voices") return tvVoiceDialog();
   if (c === "stop") return tvStop();
+}
+
+/** Télé : choix de la voix à la télécommande (voix installées sur la télé, pour la langue du chapitre lu). */
+function tvVoiceDialog() {
+  const P = tvp; if (!P || !D.tts) return;
+  const lng = P.pkg.chapters[P.ci].lang === "fr" ? "fr" : "en";
+  let vs = []; try { vs = D.tts.voices ? D.tts.voices(lng) : []; } catch { vs = []; }
+  const cur = tvVoice[lng] || "";
+  const ov = modal(`<h2>🗣 ${esc(t("voiceOf", { l: lng === "fr" ? "français" : "anglais" }))}</h2>
+    ${vs.length ? `<div class="cast-vlist">
+      <button class="btn ${cur ? "btn-ghost" : "btn-primary"}" data-v="">${cur ? "" : "✓ "}${esc(t("voiceAuto"))}</button>
+      ${vs.map(v => `<button class="btn ${cur === v.id ? "btn-primary" : "btn-ghost"}" data-v="${esc(v.id)}">${cur === v.id ? "✓ " : ""}${esc(v.label)}</button>`).join("")}
+    </div>` : `<p class="muted">${esc(t("voiceNone"))}</p>`}
+    <div class="row bk-modal-acts"><button class="btn btn-ghost" data-k="close">${esc(t("close"))}</button></div>`);
+  const close = () => { ov.remove(); const m = P.el.querySelector('[data-c="voices"]'); if (m && tvp === P) m.focus({ preventScroll: true }); };
+  ov.onclick = e => {
+    if (e.target === ov || e.target.closest('[data-k="close"]')) return close();
+    const b = e.target.closest("[data-v]"); if (!b) return;
+    close();
+    tvCmd("voice", { lang: lng, id: b.dataset.v });
+  };
+  const f = ov.querySelector(".btn-primary") || ov.querySelector("button");
+  if (f) setTimeout(() => f.focus(), 30);
 }
 
 /** Chapitre traduit envoyé après coup par le téléphone : remplacé ; si c'est celui qui est lu, il reprend au même endroit. */
@@ -674,7 +699,11 @@ export function initCast(deps) {
   on("play", tvTake);
   on("chapter", tvTakeChapters);
   on("cmd", d => d && tvCmd(d.c, d.v));
-  window.__castBack = () => { if (codeEl) return tvHideCode(); tvStop(); };
+  window.__castBack = () => {
+    if (codeEl) return tvHideCode();
+    const m = document.querySelector(".bk-modal-ov"); if (m) { m.remove(); return; }
+    tvStop();
+  };
   window.__castWake = () => {
     let info = {}; try { info = JSON.parse(bridge().info() || "{}"); } catch { /* */ }
     if (info.code && !codeEl) tvShowCode(info.code, info.phone);

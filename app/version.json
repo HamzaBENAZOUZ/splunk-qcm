@@ -1,9 +1,9 @@
 {
-  "versionCode": 24,
-  "versionName": "3.3",
+  "versionCode": 25,
+  "versionName": "3.4",
   "apk": "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/splunk-training.apk",
   "notes": {
-    "fr": "Télé : choix de la voix. Le bouton 🗣 de la télécommande du téléphone liste les voix installées sur la télé, en français et en anglais, et la télé s'en souvient. Lecture plus fiable : si la voix de la télé ne signale pas la fin d'une phrase, la lecture continue quand même. S'il n'y a aucune voix sur la télé, un message l'indique sur la télé et sur le téléphone.",
-    "en": "TV: choose the voice. The 🗣 button on the phone remote lists the voices installed on the TV, in French and English, and the TV remembers your choice. More reliable playback: if the TV's voice doesn't signal the end of a sentence, reading goes on anyway. If the TV has no voice at all, a message says so on the TV and on the phone."
+    "fr": "Choix de la voix directement sur la télé : bouton « 🗣 Voix » dans la barre du lecteur, à la télécommande. Le texte lu n'est plus caché par la barre de boutons.",
+    "en": "Choose the voice right on the TV: “🗣 Voice” button in the player bar, with the remote. The text being read is no longer hidden by the button bar."
   }
 }

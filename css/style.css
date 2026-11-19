@@ -965,3 +965,11 @@ body.cast-tv-on { overflow: hidden; }
 .cast-menu .btn { justify-content: flex-start; }
 .cast-voice { display: grid; gap: 6px; margin: 10px 0; }
 .cast-voice select { width: 100%; }
+.cast-vlist { display: grid; gap: 8px; max-height: 60vh; overflow: auto; padding: 4px; }
+.cast-vlist .btn { justify-content: flex-start; text-align: left; white-space: normal; }
+/* Télé : le texte ne passe plus sous la barre de boutons */
+.cast-ov { padding-bottom: 30vh; }
+.cast-ov::after { content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 17vh; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg) 55%); z-index: 0; }
+.cast-ctl { z-index: 1; }
+.cast-ov .cast-modal { z-index: 2; }
