@@ -315,6 +315,12 @@ function paintNav() {
 const APP_VC = +((navigator.userAgent.match(/SplunkAppVersion\/(\d+)/) || [])[1] || 0);
 const APP_VN = (navigator.userAgent.match(/SplunkAppVersion\/\d+ \(([^)]+)\)/) || [])[1] || String(APP_VC);
 const UPD_KEY = "splunk-upd-dismissed";
+// Adresse fixe de l'APK (toujours la dernière version) : GitHub, puis GitHub Pages en secours
+const APK_URLS = ["https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/splunk-training.apk",
+  "https://hamzabenazouz.github.io/splunk-qcm/app/splunk-training.apk"];
+const updater = () => (window.AndroidUpdate && typeof window.AndroidUpdate.install === "function" ? window.AndroidUpdate : null);
+let updStep = null;   // appli 3.2+ : { step, pct, err } pendant la mise à jour dans l'appli
+window.__updState = (step, pct, err) => { updStep = { step, pct, err }; renderUpdate(); };
 let updInfo = null;
 function renderUpdate() {
   let box = document.getElementById("upd-banner");
@@ -324,9 +330,31 @@ function renderUpdate() {
   if (!box) { box = document.createElement("div"); box.id = "upd-banner"; box.className = "upd-banner"; box.setAttribute("role", "status"); document.body.appendChild(box); }
   const notes = updInfo.notes && updInfo.notes[fr ? "fr" : "en"];
   box.innerHTML = `<div class="upd-txt"><strong class="mono">⬆ ${esc((fr ? "Nouvelle version de l'appli : " : "New app version: ") + updInfo.versionName)}</strong>
-${notes ? `<small>${esc(notes)}</small>` : ""}<small>${esc(fr ? `Installée : ${APP_VN}. Ouvre le fichier téléchargé pour mettre à jour, ta progression est conservée.` : `Installed: ${APP_VN}. Open the downloaded file to update, your progress is kept.`)}</small></div>
-<div class="upd-acts"><a class="btn btn-primary btn-sm" href="${esc(updInfo.apk)}">${fr ? "Télécharger" : "Download"}</a><button type="button" class="btn btn-ghost btn-sm" id="upd-later">${fr ? "Plus tard" : "Later"}</button></div>`;
+${notes ? `<small>${esc(notes)}</small>` : ""}<small>${esc(updater()
+    ? (fr ? `Installée : ${APP_VN}. « Mettre à jour » télécharge la nouvelle version puis ouvre l'installation d'Android : il suffit de confirmer, ta progression est conservée.` : `Installed: ${APP_VN}. “Update” downloads the new version then opens Android's installer: just confirm, your progress is kept.`)
+    : (fr ? `Installée : ${APP_VN}. Ouvre le fichier téléchargé pour mettre à jour, ta progression est conservée.` : `Installed: ${APP_VN}. Open the downloaded file to update, your progress is kept.`))}</small>
+${updStep ? `<small class="mono upd-step">${esc(updText(updStep, fr))}</small>` : ""}</div>
+<div class="upd-acts">${updater()
+    ? `<button type="button" class="btn btn-primary btn-sm" id="upd-go" ${updStep && /^(download|installing|permission)$/.test(updStep.step) ? "disabled" : ""}>${fr ? "Mettre à jour" : "Update"}</button>`
+    : `<a class="btn btn-primary btn-sm" href="${esc(updInfo.apk)}">${fr ? "Télécharger" : "Download"}</a>`}<button type="button" class="btn btn-ghost btn-sm" id="upd-later">${fr ? "Plus tard" : "Later"}</button></div>`;
   box.querySelector("#upd-later").addEventListener("click", () => { try { localStorage.setItem(UPD_KEY, String(updInfo.versionCode)); } catch {} renderUpdate(); });
+  const go = box.querySelector("#upd-go");
+  if (go) go.addEventListener("click", () => {
+    updStep = { step: "download", pct: 0 }; renderUpdate();
+    const urls = [...new Set([updInfo.apk, ...APK_URLS])];
+    try { updater().install(JSON.stringify(urls), updInfo.versionCode); } catch (e) { updStep = { step: "error", err: String(e) }; renderUpdate(); }
+  });
+}
+function updText(s, fr) {
+  const m = {
+    download: fr ? `Téléchargement… ${s.pct >= 0 ? s.pct + " %" : ""}` : `Downloading… ${s.pct >= 0 ? s.pct + "%" : ""}`,
+    permission: fr ? "Autorise « Installer des applis inconnues » pour Splunk Training, puis reviens : l'installation se lance." : "Allow “Install unknown apps” for Splunk Training, then come back: the install starts.",
+    "permission-denied": fr ? "Autorisation non donnée : appuie à nouveau sur « Mettre à jour »." : "Permission not granted: tap “Update” again.",
+    installing: fr ? "Installation : confirme dans la fenêtre d'Android." : "Installing: confirm in Android's window.",
+    cancel: fr ? "Installation annulée." : "Install cancelled.",
+    error: (fr ? "Échec : " : "Failed: ") + (s.err === "old" ? (fr ? "le fichier en ligne n'est pas encore à jour, réessaie dans quelques minutes." : "the online file is not updated yet, try again in a few minutes.") : s.err || "?"),
+  };
+  return m[s.step] || s.step;
 }
 async function checkUpdate() {
   if (!APP_VC || navigator.onLine === false) return;
