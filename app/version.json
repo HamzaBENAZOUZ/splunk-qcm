@@ -1,9 +1,9 @@
 {
-  "versionCode": 26,
-  "versionName": "3.5",
-  "apk": "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/splunk-training.apk",
+  "versionCode": 27,
+  "versionName": "3.6",
+  "apk": "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/mes-certifications.apk",
   "notes": {
-    "fr": "L'appli devient « Mes Certifications ». Nouvel onglet AWS Solutions Architect Associate (SAA-C03) : questions en anglais et en français, test d'évaluation, et le guide d'étude dans Books avec des résumés détaillés et des rappels pour l'examen à chaque chapitre.",
-    "en": "The app is now “Mes Certifications”. New AWS Solutions Architect Associate (SAA-C03) tab: questions in English and French, an assessment test, and the study guide in Books with detailed summaries and exam reminders for every chapter."
+    "fr": "Nouveau logo (médaille) et nouveau nom du fichier : mes-certifications.apk. L'appli est prête si l'adresse du site change.",
+    "en": "New logo (medal) and new file name: mes-certifications.apk. The app is ready if the site address changes."
   }
 }

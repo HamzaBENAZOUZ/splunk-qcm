@@ -321,8 +321,11 @@ const APP_VC = +((navigator.userAgent.match(/SplunkAppVersion\/(\d+)/) || [])[1]
 const APP_VN = (navigator.userAgent.match(/SplunkAppVersion\/\d+ \(([^)]+)\)/) || [])[1] || String(APP_VC);
 const UPD_KEY = "splunk-upd-dismissed";
 // Adresse fixe de l'APK (toujours la dernière version) : GitHub, puis GitHub Pages en secours
-const APK_URLS = ["https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/splunk-training.apk",
-  "https://hamzabenazouz.github.io/splunk-qcm/app/splunk-training.apk"];
+const APK_URLS = ["https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/mes-certifications.apk",
+  "https://hamzabenazouz.github.io/splunk-qcm/app/mes-certifications.apk",
+  "https://hamzabenazouz.github.io/mes-certifications/app/mes-certifications.apk"];
+// version.json : adresse relative, puis la future adresse du site (dépôt renommé « mes-certifications »)
+const VERSION_URLS = ["app/version.json", "https://hamzabenazouz.github.io/mes-certifications/app/version.json"];
 const updater = () => (window.AndroidUpdate && typeof window.AndroidUpdate.install === "function" ? window.AndroidUpdate : null);
 let updStep = null;   // appli 3.2+ : { step, pct, err } pendant la mise à jour dans l'appli
 window.__updState = (step, pct, err) => { updStep = { step, pct, err }; renderUpdate(); };
@@ -364,7 +367,12 @@ function updText(s, fr) {
 async function checkUpdate() {
   if (!APP_VC || navigator.onLine === false) return;
   try {
-    const r = await fetch("app/version.json?t=" + Date.now(), { cache: "no-store" }); if (!r.ok) return;
+    let r = null;
+    for (const u of VERSION_URLS) {
+      try { r = await fetch(u + "?t=" + Date.now(), { cache: "no-store" }); } catch { r = null; }
+      if (r && r.ok) break;
+    }
+    if (!r || !r.ok) return;
     const j = await r.json();
     if (j && Number.isInteger(j.versionCode) && typeof j.apk === "string") {
       updInfo = { ...j, apk: new URL(j.apk, location.href).href, versionName: String(j.versionName || j.versionCode) };
