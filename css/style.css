@@ -982,3 +982,14 @@ body.cast-tv-on { overflow: hidden; }
   background: color-mix(in srgb, #f5a623 8%, transparent); }
 .bk-content table { margin: 0 0 1.1em; font-size: .9em; }
 .bk-content th, .bk-content td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+
+/* ---------- Archiver une certification (sous le panneau Hors ligne) ---------- */
+.archive-panel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem; margin: 0 0 1rem; }
+.archive-panel h3 { margin: 0 0 .3rem; }
+.archive-panel p { margin: 0; }
+.archive-panel > div:first-child { flex: 1 1 320px; min-width: 0; }
+.archive-panel .row { display: flex; gap: .4rem; flex-wrap: wrap; }
+.archive-panel .small { margin-top: .6rem; }
+.arch-list { list-style: none; padding: 0; margin: .4rem 0 0; display: flex; flex-direction: column; gap: .4rem; }
+.arch-list li { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap;
+  padding: .45rem .7rem; border: 1px dashed var(--line-2); border-radius: 10px; }
