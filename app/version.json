@@ -1,9 +1,9 @@
 {
-  "versionCode": 31,
-  "versionName": "3.10",
+  "versionCode": 32,
+  "versionName": "3.11",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Nouveau mode express : la voix lit chaque question et ses propositions deux fois, tu as 30 secondes pour répondre, puis elle lit la réponse et l'explication et passe seule à la suivante.",
-    "en": "New express mode: the voice reads each question and its options twice, you get 30 seconds to answer, then it reads the answer and explanation and moves on by itself."
+    "fr": "Au début de chaque livre : le temps pour tout le livre, à lire soi-même et avec la voix. Au début de chaque chapitre : le temps de ce chapitre. Mode express toujours disponible.",
+    "en": "At the start of each book: the time for the whole book, reading yourself and with the voice. At the start of each chapter: the time for that chapter. Express mode still available."
   }
 }
