@@ -12,9 +12,11 @@ const IN_APP = !!window.AndroidTTS;
 
 const CFG = window.SPLUNK_CONFIG || {};
 const PASS = CFG.PASS_MARK || 70;
-const DOMAIN_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];  // 1-8 : SPLK-1001, 11-20 : SPLK-1002
-const dNum = d => (d > 10 ? d - 10 : d);   // numéro de thème affiché
-const SEC_PER_Q = 60;   // SPLK-1001 : 60 questions en 60 minutes
+const DOMAIN_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 31, 32];  // 1-8 : SPLK-1001, 11-20 : SPLK-1002, 31-32 : AWS SAA-C03 (parties I et II du livre)
+const dNum = d => (d > 30 ? d - 30 : d > 10 ? d - 10 : d);   // numéro de thème affiché
+/** Secondes par question à l'examen : SPLK = 60 questions en 60 minutes ; AWS SAA-C03 = 65 questions en 130 minutes. */
+const secPerQ = sec => (sec === "aws" ? 120 : 60);
+const SECTIONS = ["guide", "practice", "aws"];
 
 const app = document.getElementById("app");
 const state = {
@@ -23,7 +25,7 @@ const state = {
   attempts: [], latest: new Map(),
   quiz: null, timer: null, lastResult: null,
   view: "boot", authMode: "login",
-  section: (() => { try { return localStorage.getItem("splunk-section") === "practice" ? "practice" : "guide"; } catch { return "guide"; } })(),
+  section: (() => { try { const v = localStorage.getItem("splunk-section"); return SECTIONS.includes(v) ? v : "guide"; } catch { return "guide"; } })(),
 };
 
 // ------------------------------------------------------------------ utils
@@ -211,13 +213,16 @@ function bindSpeak(list) {
 const chTitle = c => (c ? (getLang() === "fr" && c.title_fr ? c.title_fr : c.title) : "");
 const chById = id => state.chapters.find(c => c.id === id);
 
-// ---- Sections : « guide » = SPLK-1001 (modules Packt 1-9 + questions originales 11-18), « practice » = SPLK-1002 (101-110)
-const secOf = chId => (chId > 100 ? "practice" : "guide");
+// ---- Sections : « guide » = SPLK-1001 (modules Packt 1-9 + questions originales 11-18), « practice » = SPLK-1002 (101-110),
+//      « aws » = AWS Certified Solutions Architect – Associate (200 = test d'évaluation, 201-213 = chapitres 1 à 13)
+const secOf = chId => (chId >= 200 ? "aws" : chId > 100 ? "practice" : "guide");
 const secChapters = () => state.chapters.filter(c => secOf(c.id) === state.section);
 const secQuestions = () => state.questions.filter(q => secOf(q.chapter_id) === state.section);
-const hasPractice = () => state.chapters.some(c => c.id > 100);
+const hasSec = k => state.chapters.some(c => secOf(c.id) === k);
 /** Étiquette courte : MOD_07 (module Packt), PLUS_T3 (questions originales SPLK-1001, thème 3), T03 (SPLK-1002, thème 3). */
 function chLabel(id) {
+  if (id === 200) return "AWS_TEST";
+  if (id > 200) return `AWS_CH${pad(id - 200)}`;
   if (id <= 9) return `MOD_${pad(id)}`;
   if (id <= 100) return `PLUS_T${id - 10}`;
   return `T${pad(id - 100)}`;
@@ -348,7 +353,7 @@ ${updStep ? `<small class="mono upd-step">${esc(updText(updStep, fr))}</small>` 
 function updText(s, fr) {
   const m = {
     download: fr ? `Téléchargement… ${s.pct >= 0 ? s.pct + " %" : ""}` : `Downloading… ${s.pct >= 0 ? s.pct + "%" : ""}`,
-    permission: fr ? "Autorise « Installer des applis inconnues » pour Splunk Training, puis reviens : l'installation se lance." : "Allow “Install unknown apps” for Splunk Training, then come back: the install starts.",
+    permission: fr ? "Autorise « Installer des applis inconnues » pour Mes Certifications, puis reviens : l'installation se lance." : "Allow “Install unknown apps” for Mes Certifications, then come back: the install starts.",
     "permission-denied": fr ? "Autorisation non donnée : appuie à nouveau sur « Mettre à jour »." : "Permission not granted: tap “Update” again.",
     installing: fr ? "Installation : confirme dans la fenêtre d'Android." : "Installing: confirm in Android's window.",
     cancel: fr ? "Installation annulée." : "Install cancelled.",
@@ -702,7 +707,7 @@ function savedPanel() {
 function renderHome() {
   stopTimer();
   state.view = "home";
-  if (state.section === "practice" && !hasPractice()) state.section = "guide";
+  if (!hasSec(state.section)) state.section = "guide";
   const sec = state.section;
   const inSec = q => secOf(q.chapter_id) === sec;
   const SQ = secQuestions(), SC = secChapters();
@@ -751,23 +756,27 @@ function renderHome() {
   const testsBlock = tests.length ? `
     <section class="domain">
       <div class="domain-head"><h2><span class="mono accent">EXAM</span> ${esc(t("home.tests"))}</h2></div>
-      <p class="muted small">${esc(t("home.testsDesc"))}</p>
+      <p class="muted small">${esc(t(sec === "aws" ? "home.testsDescAws" : "home.testsDesc"))}</p>
       <div class="chapter-grid">${tests.map(card).join("")}</div>
     </section>` : "";
-  const tabs = hasPractice() ? `
+  const secs = SECTIONS.filter(hasSec);
+  const tabs = secs.length > 1 ? `
     <div class="seg sec-tabs" role="group" aria-label="${esc(t("sec.label"))}">
-      ${["guide", "practice"].map(k => `<button class="seg-btn" data-section="${k}" aria-pressed="${k === sec}">${esc(t("sec." + k))}
+      ${secs.map(k => `<button class="seg-btn" data-section="${k}" aria-pressed="${k === sec}">${esc(t("sec." + k))}
         <small class="mono">${state.questions.filter(q => secOf(q.chapter_id) === k).length}</small></button>`).join("")}
     </div>` : "";
 
   const sizes = [20, 40, 60, 65, 100];
-  const defSize = sec === "practice" ? 65 : 60;   // SPLK-1001 : 60 questions ; SPLK-1002 : 65 questions
+  const defSize = sec === "guide" ? 60 : 65;   // SPLK-1001 : 60 questions ; SPLK-1002 et AWS SAA-C03 : 65 questions
+  const SEC_PER_Q = secPerQ(sec);
+  const heroT = sec === "aws" ? "AWS SOLUTIONS ARCHITECT" : "SPLUNK TRAINING TERMINAL";
+  const kicker = sec === "aws" ? `&gt; aws ec2 describe-exam --exam SAA-C03 --lang ${getLang()}` : `&gt; splunk@search:~$ | search mode=qcm lang=${getLang()}`;
   app.innerHTML = `
   <section class="hero">
-    <p class="mono kicker">&gt; splunk@search:~$ | search mode=qcm lang=${getLang()}</p>
-    <h1 class="glitch" data-text="SPLUNK TRAINING TERMINAL">SPLUNK TRAINING TERMINAL</h1>
+    <p class="mono kicker">${kicker}</p>
+    <h1 class="glitch" data-text="${heroT}">${heroT}</h1>
     ${tabs}
-    <p class="muted">${esc(sec === "practice" ? t("home.subPractice", { n: total }) : t("home.sub", { n: total, c: SC.length }))}</p>
+    <p class="muted">${esc(sec === "aws" ? t("home.subAws", { n: total, c: SC.length }) : sec === "practice" ? t("home.subPractice", { n: total }) : t("home.sub", { n: total, c: SC.length }))}</p>
     <div class="stats">
       <div class="stat"><span class="stat-val mono">${seen}<small>/${total}</small></span><span class="stat-lbl">${esc(t("home.seen"))}</span></div>
       <div class="stat"><span class="stat-val mono">${seen ? pct(ok, seen) : 0}<small>%</small></span><span class="stat-lbl">${esc(t("home.rate"))}</span></div>

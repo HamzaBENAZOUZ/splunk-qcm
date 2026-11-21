@@ -1,9 +1,9 @@
 {
-  "versionCode": 25,
-  "versionName": "3.4",
+  "versionCode": 26,
+  "versionName": "3.5",
   "apk": "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/splunk-training.apk",
   "notes": {
-    "fr": "Choix de la voix directement sur la télé : bouton « 🗣 Voix » dans la barre du lecteur, à la télécommande. Le texte lu n'est plus caché par la barre de boutons.",
-    "en": "Choose the voice right on the TV: “🗣 Voice” button in the player bar, with the remote. The text being read is no longer hidden by the button bar."
+    "fr": "L'appli devient « Mes Certifications ». Nouvel onglet AWS Solutions Architect Associate (SAA-C03) : questions en anglais et en français, test d'évaluation, et le guide d'étude dans Books avec des résumés détaillés et des rappels pour l'examen à chaque chapitre.",
+    "en": "The app is now “Mes Certifications”. New AWS Solutions Architect Associate (SAA-C03) tab: questions in English and French, an assessment test, and the study guide in Books with detailed summaries and exam reminders for every chapter."
   }
 }

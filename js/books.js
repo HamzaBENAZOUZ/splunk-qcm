@@ -26,10 +26,10 @@ const L = {
     chapters: "chapitres", chapter: "Chapitre", read: "lus", quizAvg: "moyenne aux quiz", start: "Commencer la lecture", cont: "Continuer",
     dl: "Télécharger pour lire hors ligne", dlBusy: "Téléchargement…", dlDone: "Disponible hors ligne", dlOk: "Livre téléchargé sur cet appareil",
     back: "Retour", toc: "Sommaire", listen: "Écouter le chapitre", resume: "Reprendre l'écoute", content: "Langue du texte",
-    notes: "Note de vérification", notesSub: "Points du livre corrigés ou précisés d'après la documentation Splunk.",
+    notes: "Note de vérification", notesSub: "Points du livre corrigés ou précisés d'après la documentation officielle.",
     quiz: "Quiz du chapitre", quizRetry: "Refaire le quiz", markRead: "Marquer comme lu", isRead: "Lu",
     prev: "Chapitre précédent", next: "Chapitre suivant", backCh: "Revenir au chapitre", best: "Meilleur score",
-    score: "Ton score", qOf: "Question {i} sur {n}", correct: "Bonne réponse", wrong: "Mauvaise réponse", finish: "Voir mon score",
+    score: "Ton score", pickN: "Choisis {n} réponses.", qOf: "Question {i} sur {n}", correct: "Bonne réponse", wrong: "Mauvaise réponse", finish: "Voir mon score",
     perfect: "Parfait !", good: "Bien joué.", again: "À revoir : relis le chapitre puis retente le quiz.",
     play: "Lecture", pause: "Pause", prevP: "Paragraphe précédent", nextP: "Paragraphe suivant", speed: "Vitesse", close: "Fermer le lecteur",
     noVoice: "La lecture à voix haute n'est pas disponible sur ce navigateur.", noVoiceFr: "Pas de voix française disponible ici : lecture en anglais.",
@@ -83,10 +83,10 @@ const L = {
     chapters: "chapters", chapter: "Chapter", read: "read", quizAvg: "quiz average", start: "Start reading", cont: "Continue",
     dl: "Download to read offline", dlBusy: "Downloading…", dlDone: "Available offline", dlOk: "Book downloaded to this device",
     back: "Back", toc: "Contents", listen: "Listen to the chapter", resume: "Resume listening", content: "Text language",
-    notes: "Fact-check note", notesSub: "Points from the book corrected or clarified against the Splunk documentation.",
+    notes: "Fact-check note", notesSub: "Points from the book corrected or clarified against the official documentation.",
     quiz: "Chapter quiz", quizRetry: "Retake the quiz", markRead: "Mark as read", isRead: "Read",
     prev: "Previous chapter", next: "Next chapter", backCh: "Back to the chapter", best: "Best score",
-    score: "Your score", qOf: "Question {i} of {n}", correct: "Correct", wrong: "Wrong answer", finish: "See my score",
+    score: "Your score", pickN: "Pick {n} answers.", qOf: "Question {i} of {n}", correct: "Correct", wrong: "Wrong answer", finish: "See my score",
     perfect: "Perfect!", good: "Well done.", again: "Worth another look: reread the chapter and retake the quiz.",
     play: "Play", pause: "Pause", prevP: "Previous paragraph", nextP: "Next paragraph", speed: "Speed", close: "Close the player",
     noVoice: "Text-to-speech is not available in this browser.", noVoiceFr: "No French voice here: reading in English.",
@@ -1379,8 +1379,13 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
   function renderQuiz(b, ch) {
     stop();
     const lang = cLang(), qs = ch.quiz || [], base = `#/books/${encodeURIComponent(b.id)}/${ch.n}`;
-    if (!quizState || quizState.key !== b.id + "|" + ch.n) quizState = { key: b.id + "|" + ch.n, ans: {} };
-    const A = quizState.ans, nAns = Object.keys(A).length, good = qs.filter((q, i) => A[i] === q.a).length;
+    if (!quizState || quizState.key !== b.id + "|" + ch.n) quizState = { key: b.id + "|" + ch.n, ans: {}, sel: {} };
+    // q.a : index de la bonne réponse, ou tableau d'index pour les questions à plusieurs réponses (« Choose two »)
+    const A = quizState.ans, S = quizState.sel, nAns = Object.keys(A).length;
+    const isOk = (q, x) => Array.isArray(q.a) ? Array.isArray(x) && x.length === q.a.length && q.a.every(v => x.includes(v)) : x === q.a;
+    const isGood = (q, j) => Array.isArray(q.a) ? q.a.includes(j) : j === q.a;
+    const picked = (x, j) => Array.isArray(x) ? x.includes(j) : x === j;
+    const good = qs.filter((q, i) => isOk(q, A[i])).length;
     const L2 = q => q[lang] || q.en;
     const r = rec(b.id, ch.n);
     root.innerHTML = `<div class="bk-quiz">
@@ -1394,15 +1399,16 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       </header>
       ${qs.map((q, i) => {
         const x = L2(q), done = i in A;
-        return `<section class="panel bk-q${done ? (A[i] === q.a ? " ok" : " ko") : ""}" lang="${lang}">
+        return `<section class="panel bk-q${done ? (isOk(q, A[i]) ? " ok" : " ko") : ""}" lang="${lang}">
           <div class="bk-q-head"><p class="mono muted">${esc(t("qOf", { i: i + 1, n: qs.length }))}</p>
             ${tts.can ? `<button class="btn btn-ghost btn-xs btn-speak" data-qspeak="${i}">🔊 ${esc(t("listenQ"))}</button>` : ""}</div>
           <h3>${esc(x.q)}</h3>
           <div class="bk-opts">${x.o.map((o, j) => {
-            const cls = done ? (j === q.a ? " correct" : j === A[i] ? " wrong" : "") : "";
+            const cls = done ? (isGood(q, j) ? " correct" : picked(A[i], j) ? " wrong" : "") : (S[i] && S[i].includes(j) ? " selected" : "");
             return `<button class="opt bk-opt${cls}" data-q="${i}" data-o="${j}" ${done ? "disabled" : ""}><span class="opt-key mono">${String.fromCharCode(65 + j)}</span><span>${esc(o)}</span></button>`;
           }).join("")}</div>
-          ${done ? `<p class="bk-expl"><strong>${esc(A[i] === q.a ? "✓ " + t("correct") : "✗ " + t("wrong"))}.</strong> ${esc(x.e)}</p>` : ""}
+          ${!done && Array.isArray(q.a) ? `<p class="mono muted small">${esc(t("pickN", { n: q.a.length }))}</p>` : ""}
+          ${done ? `<p class="bk-expl"><strong>${esc(isOk(q, A[i]) ? "✓ " + t("correct") : "✗ " + t("wrong"))}.</strong> ${esc(x.e)}</p>` : ""}
         </section>`;
       }).join("")}
       ${nAns === qs.length && qs.length ? `<section class="panel bk-result">
@@ -1415,10 +1421,14 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
     </div>`;
     root.querySelectorAll("[data-clang]").forEach(btn => btn.onclick = () => { prefs.lang = btn.dataset.clang; savePrefs(); renderQuiz(b, ch); });
     root.querySelectorAll(".bk-opt").forEach(btn => btn.onclick = () => {
-      const i = +btn.dataset.q; if (i in A) return;
-      A[i] = +btn.dataset.o;
+      const i = +btn.dataset.q, o = +btn.dataset.o; if (i in A) return;
+      if (Array.isArray(qs[i].a)) {   // plusieurs réponses : on valide quand le bon nombre de cases est coché
+        const sel = S[i] || (S[i] = []), at = sel.indexOf(o);
+        if (at >= 0) sel.splice(at, 1); else sel.push(o);
+        if (sel.length === qs[i].a.length) A[i] = [...sel].sort((x, y) => x - y);
+      } else A[i] = o;
       if (Object.keys(A).length === qs.length) {
-        const score = qs.filter((q, k) => A[k] === q.a).length, rr = rec(b.id, ch.n);
+        const score = qs.filter((q, k) => isOk(q, A[k])).length, rr = rec(b.id, ch.n);
         if (rr.b == null || score > rr.b) { rr.b = score; rr.t = qs.length; }
         if (!rr.r) rr.r = Date.now();
         saveP(b.id, ch.n);
@@ -1432,7 +1442,7 @@ export function createBooks({ store, getLang, esc, toast, userId, tts }) {
       const sl = lang === "fr" && !tts.canFr ? "en" : lang, fr = sl === "fr";
       const opts = x.o.map((o, j) => `${String.fromCharCode(65 + j)}${fr ? " :" : ":"} ${o}.`).join(" ");
       let txt = `${x.q} ${opts}`;
-      if (i in A) txt += ` ${fr ? "Bonne réponse" : "Correct answer"} ${String.fromCharCode(65 + q.a)}. ${x.e}`;
+      if (i in A) txt += ` ${fr ? "Bonne réponse" : "Correct answer"} ${[].concat(q.a).map(v => String.fromCharCode(65 + v)).join(fr ? " et " : " and ")}. ${x.e}`;
       btn.classList.add("on");
       say(txt, sl, () => btn.classList.remove("on"));
     });

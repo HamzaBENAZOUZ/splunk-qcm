@@ -973,3 +973,12 @@ body.cast-tv-on { overflow: hidden; }
   background: linear-gradient(to bottom, transparent, var(--bg) 55%); z-index: 0; }
 .cast-ctl { z-index: 1; }
 .cast-ov .cast-modal { z-index: 2; }
+
+/* ---------- Books : encadrés « À retenir pour l'examen » (résumés AWS) ---------- */
+.bk-content .bk-exam { margin: 1.4em 0; padding: 4px 16px 6px; border-left: 4px solid var(--cyan); border-radius: 10px;
+  background: color-mix(in srgb, var(--cyan) 7%, transparent); }
+.bk-content .bk-exam h3 { margin-top: .8em; color: var(--cyan); }
+.bk-content .bk-tip { margin: 1em 0; padding: 8px 14px; border-left: 4px solid #f5a623; border-radius: 10px;
+  background: color-mix(in srgb, #f5a623 8%, transparent); }
+.bk-content table { margin: 0 0 1.1em; font-size: .9em; }
+.bk-content th, .bk-content td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }

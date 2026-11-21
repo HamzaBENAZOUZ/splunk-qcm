@@ -1,6 +1,6 @@
 // Module Google TV : lire un livre sur la télé depuis le téléphone.
 //
-// La même appli Splunk Training est installée sur le téléphone et sur la Google TV (ou toute télé Android TV).
+// La même appli Mes Certifications est installée sur le téléphone et sur la Google TV (ou toute télé Android TV).
 //  - Téléphone : « 📺 Lire sur la télé » (onglet Books). La première fois, il cherche les télés sur le Wi-Fi et s'associe
 //    avec le code à 4 chiffres affiché sur la télé. L'association est gardée (même après redémarrage du téléphone ou de
 //    la télé) jusqu'à « Dissocier ». Ensuite le livre part sur la télé, et le téléphone sert de télécommande.
@@ -12,13 +12,13 @@
 const L = {
   fr: {
     cast: "Lire sur la télé", castTo: "Lire sur {n}", unpair: "Dissocier la télé", unpairQ: "Dissocier « {n} » ? Il faudra refaire l'association avec un code.",
-    unpaired: "Télé dissociée", pairT: "Associer une télé", pairTxt: "Ouvre Splunk Training sur la Google TV, connectée au même Wi-Fi que ce téléphone.",
+    unpaired: "Télé dissociée", pairT: "Associer une télé", pairTxt: "Ouvre Mes Certifications sur la Google TV, connectée au même Wi-Fi que ce téléphone.",
     searching: "Recherche des télés…", none: "Aucune télé trouvée.", again: "Relancer la recherche", manual: "Adresse affichée sur la télé (bouton 📺)",
     connect: "Se connecter", codeT: "Entre le code affiché sur la télé", ok: "Valider", cancel: "Annuler", close: "Fermer",
     badCode: "Code incorrect ({n} essai(s) restant(s))", expired: "Code expiré : recommence l'association.",
-    noTv: "Télé injoignable. Vérifie que Splunk Training est ouvert sur la télé et que les deux appareils sont sur le même Wi-Fi.",
+    noTv: "Télé injoignable. Vérifie que Mes Certifications est ouvert sur la télé et que les deux appareils sont sur le même Wi-Fi.",
     paired: "Télé associée : {n}", busy: "Préparation… {i}/{n}", sending: "Envoi vers la télé…", sent: "Lecture lancée sur {n}",
-    openTv: "Ouvre Splunk Training sur la télé : le livre démarrera tout seul.", lost: "La télé a dissocié ce téléphone : refais l'association.",
+    openTv: "Ouvre Mes Certifications sur la télé : le livre démarrera tout seul.", lost: "La télé a dissocié ce téléphone : refais l'association.",
     chapter: "Chapitre", stopped: "Lecture arrêtée", idle: "En attente", loading: "Chargement…",
     prevCh: "Chapitre précédent", nextCh: "Chapitre suivant", prevS: "Phrase précédente", nextS: "Phrase suivante",
     play: "Lecture", pause: "Pause", stop: "Arrêter sur la télé", hide: "Masquer la télécommande", slower: "Plus lent", faster: "Plus rapide",
@@ -38,13 +38,13 @@ const L = {
   },
   en: {
     cast: "Play on TV", castTo: "Play on {n}", unpair: "Unpair the TV", unpairQ: "Unpair “{n}”? You will need to pair again with a code.",
-    unpaired: "TV unpaired", pairT: "Pair a TV", pairTxt: "Open Splunk Training on the Google TV, on the same Wi-Fi as this phone.",
+    unpaired: "TV unpaired", pairT: "Pair a TV", pairTxt: "Open Mes Certifications on the Google TV, on the same Wi-Fi as this phone.",
     searching: "Looking for TVs…", none: "No TV found.", again: "Search again", manual: "Address shown on the TV (📺 button)",
     connect: "Connect", codeT: "Enter the code shown on the TV", ok: "Confirm", cancel: "Cancel", close: "Close",
     badCode: "Wrong code ({n} attempt(s) left)", expired: "Code expired: start pairing again.",
-    noTv: "TV unreachable. Check that Splunk Training is open on the TV and both devices are on the same Wi-Fi.",
+    noTv: "TV unreachable. Check that Mes Certifications is open on the TV and both devices are on the same Wi-Fi.",
     paired: "TV paired: {n}", busy: "Preparing… {i}/{n}", sending: "Sending to the TV…", sent: "Playing on {n}",
-    openTv: "Open Splunk Training on the TV: the book will start by itself.", lost: "The TV unpaired this phone: pair again.",
+    openTv: "Open Mes Certifications on the TV: the book will start by itself.", lost: "The TV unpaired this phone: pair again.",
     chapter: "Chapter", stopped: "Playback stopped", idle: "Waiting", loading: "Loading…",
     prevCh: "Previous chapter", nextCh: "Next chapter", prevS: "Previous sentence", nextS: "Next sentence",
     play: "Play", pause: "Pause", stop: "Stop on the TV", hide: "Hide the remote", slower: "Slower", faster: "Faster",
