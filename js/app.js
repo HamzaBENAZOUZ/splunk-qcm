@@ -331,11 +331,11 @@ const APP_VC = +((navigator.userAgent.match(/SplunkAppVersion\/(\d+)/) || [])[1]
 const APP_VN = (navigator.userAgent.match(/SplunkAppVersion\/\d+ \(([^)]+)\)/) || [])[1] || String(APP_VC);
 const UPD_KEY = "splunk-upd-dismissed";
 // Adresse fixe de l'APK (toujours la dernière version) : GitHub, puis GitHub Pages en secours
-const APK_URLS = ["https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/mes-certifications.apk",
-  "https://hamzabenazouz.github.io/splunk-qcm/app/mes-certifications.apk",
-  "https://hamzabenazouz.github.io/mes-certifications/app/mes-certifications.apk"];
-// version.json : adresse relative, puis la future adresse du site (dépôt renommé « mes-certifications »)
-const VERSION_URLS = ["app/version.json", "https://hamzabenazouz.github.io/mes-certifications/app/version.json"];
+const APK_URLS = ["https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
+  "https://hamzabenazouz.github.io/MyCertif/app/MyCertif.apk",
+  "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/mes-certifications.apk"];
+// version.json : adresse relative, puis le site MyCertif (nouvelle adresse depuis la 3.9)
+const VERSION_URLS = ["app/version.json", "https://hamzabenazouz.github.io/MyCertif/app/version.json"];
 const updater = () => (window.AndroidUpdate && typeof window.AndroidUpdate.install === "function" ? window.AndroidUpdate : null);
 let updStep = null;   // appli 3.2+ : { step, pct, err } pendant la mise à jour dans l'appli
 window.__updState = (step, pct, err) => { updStep = { step, pct, err }; renderUpdate(); };
@@ -366,7 +366,7 @@ ${updStep ? `<small class="mono upd-step">${esc(updText(updStep, fr))}</small>` 
 function updText(s, fr) {
   const m = {
     download: fr ? `Téléchargement… ${s.pct >= 0 ? s.pct + " %" : ""}` : `Downloading… ${s.pct >= 0 ? s.pct + "%" : ""}`,
-    permission: fr ? "Autorise « Installer des applis inconnues » pour Mes Certifications, puis reviens : l'installation se lance." : "Allow “Install unknown apps” for Mes Certifications, then come back: the install starts.",
+    permission: fr ? "Autorise « Installer des applis inconnues » pour MyCertif, puis reviens : l'installation se lance." : "Allow “Install unknown apps” for MyCertif, then come back: the install starts.",
     "permission-denied": fr ? "Autorisation non donnée : appuie à nouveau sur « Mettre à jour »." : "Permission not granted: tap “Update” again.",
     installing: fr ? "Installation : confirme dans la fenêtre d'Android." : "Installing: confirm in Android's window.",
     cancel: fr ? "Installation annulée." : "Install cancelled.",
