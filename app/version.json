@@ -1,9 +1,9 @@
 {
-  "versionCode": 34,
-  "versionName": "3.13",
+  "versionCode": 35,
+  "versionName": "3.14",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Nouvel onglet Paramètres : voix du téléphone ou voix naturelle hors ligne (Siwis en français, Kristin en anglais, à télécharger une fois), vitesse, pause entre les phrases, réglages du mode express, langue et thème.",
-    "en": "New Settings tab: phone voice or offline natural voice (Siwis in French, Kristin in English, downloaded once), speed, pause between sentences, express mode settings, language and theme."
+    "fr": "Nouvelle page Examens : pour chaque certification, durée, coût, nombre de questions, score, lieu de passage (centre Pearson VUE ou en ligne), langues, validité, rattrapage et inscription. Accès depuis l'encadré « L'examen officiel » de l'accueil.",
+    "en": "New Exams page: for each certification, duration, cost, number of questions, score, where to take it (Pearson VUE center or online), languages, validity, retakes and registration. Open it from the \"The official exam\" box on the home page."
   }
 }
