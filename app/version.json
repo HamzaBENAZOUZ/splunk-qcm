@@ -1,9 +1,9 @@
 {
-  "versionCode": 32,
-  "versionName": "3.11",
+  "versionCode": 33,
+  "versionName": "3.12",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Au début de chaque livre : le temps pour tout le livre, à lire soi-même et avec la voix. Au début de chaque chapitre : le temps de ce chapitre. Mode express toujours disponible.",
-    "en": "At the start of each book: the time for the whole book, reading yourself and with the voice. At the start of each chapter: the time for that chapter. Express mode still available."
+    "fr": "Écoute (téléphone et voiture) : les sigles sont épelés (DNS se dit D N S) et une petite pause sépare chaque phrase, réglable dans les réglages de lecture. Dans la voiture, renvoie tes livres avec « Mettre à jour dans la voiture ».",
+    "en": "Listening (phone and car): acronyms are spelled out (DNS is read D N S) and a short pause separates sentences, adjustable in the reading settings. For the car, resend your books with “Update in the car”."
   }
 }
