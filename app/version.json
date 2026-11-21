@@ -1,9 +1,9 @@
 {
-  "versionCode": 29,
-  "versionName": "3.8",
-  "apk": "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/mes-certifications.apk",
+  "versionCode": 30,
+  "versionName": "3.9",
+  "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Nouveau bouton « Archiver la certification » sous Hors ligne : la certification disparaît du sélecteur, la progression est gardée, et « Restaurer » la remet. L'affichage s'adapte mieux à la taille de l'écran (rotation, tablette, grande police).",
-    "en": "New \"Archive a certification\" button under Offline: the certification disappears from the selector, progress is kept, and \"Restore\" brings it back. The layout fits the screen better (rotation, tablets, large fonts)."
+    "fr": "L'application s'appelle maintenant MyCertif et le site a déménagé sur hamzabenazouz.github.io/MyCertif. Ta progression et ta connexion sont gardées.",
+    "en": "The app is now called MyCertif and the site moved to hamzabenazouz.github.io/MyCertif. Your progress and sign-in are kept."
   }
 }
