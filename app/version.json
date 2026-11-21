@@ -1,9 +1,9 @@
 {
-  "versionCode": 30,
-  "versionName": "3.9",
+  "versionCode": 31,
+  "versionName": "3.10",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "L'application s'appelle maintenant MyCertif et le site a déménagé sur hamzabenazouz.github.io/MyCertif. Ta progression et ta connexion sont gardées.",
-    "en": "The app is now called MyCertif and the site moved to hamzabenazouz.github.io/MyCertif. Your progress and sign-in are kept."
+    "fr": "Nouveau mode express : la voix lit chaque question et ses propositions deux fois, tu as 30 secondes pour répondre, puis elle lit la réponse et l'explication et passe seule à la suivante.",
+    "en": "New express mode: the voice reads each question and its options twice, you get 30 seconds to answer, then it reads the answer and explanation and moves on by itself."
   }
 }
