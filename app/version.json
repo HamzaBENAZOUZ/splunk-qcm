@@ -1,9 +1,9 @@
 {
-  "versionCode": 33,
-  "versionName": "3.12",
+  "versionCode": 34,
+  "versionName": "3.13",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Écoute (téléphone et voiture) : les sigles sont épelés (DNS se dit D N S) et une petite pause sépare chaque phrase, réglable dans les réglages de lecture. Dans la voiture, renvoie tes livres avec « Mettre à jour dans la voiture ».",
-    "en": "Listening (phone and car): acronyms are spelled out (DNS is read D N S) and a short pause separates sentences, adjustable in the reading settings. For the car, resend your books with “Update in the car”."
+    "fr": "Nouvel onglet Paramètres : voix du téléphone ou voix naturelle hors ligne (Siwis en français, Kristin en anglais, à télécharger une fois), vitesse, pause entre les phrases, réglages du mode express, langue et thème.",
+    "en": "New Settings tab: phone voice or offline natural voice (Siwis in French, Kristin in English, downloaded once), speed, pause between sentences, express mode settings, language and theme."
   }
 }
