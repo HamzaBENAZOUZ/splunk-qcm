@@ -219,6 +219,16 @@ const secOf = chId => (chId >= 200 ? "aws" : chId > 100 ? "practice" : "guide");
 const secChapters = () => state.chapters.filter(c => secOf(c.id) === state.section);
 const secQuestions = () => state.questions.filter(q => secOf(q.chapter_id) === state.section);
 const hasSec = k => state.chapters.some(c => secOf(c.id) === k);
+// ---- Certifications archivées : masquées du sélecteur, progression conservée (rien n'est supprimé).
+const ARCH_KEY = "mc-archived";
+const archivedSecs = () => { try { const a = JSON.parse(localStorage.getItem(ARCH_KEY) || "[]"); return Array.isArray(a) ? a.filter(k => SECTIONS.includes(k)) : []; } catch { return []; } };
+const isArchived = k => archivedSecs().includes(k);
+const visibleSecs = () => SECTIONS.filter(k => hasSec(k) && !isArchived(k));
+function setArchived(k, on) {
+  const a = new Set(archivedSecs());
+  if (on) a.add(k); else a.delete(k);
+  try { localStorage.setItem(ARCH_KEY, JSON.stringify([...a])); } catch { /* ignore */ }
+}
 /** Étiquette courte : MOD_07 (module Packt), PLUS_T3 (questions originales SPLK-1001, thème 3), T03 (SPLK-1002, thème 3). */
 function chLabel(id) {
   if (id === 200) return "AWS_TEST";
@@ -548,6 +558,37 @@ async function offlinePanel() {
   </section>`;
 }
 
+/** Archiver la certification affichée (elle disparaît du sélecteur) et restaurer les archivées. */
+function archivePanel(sec) {
+  const arch = archivedSecs().filter(hasSec);
+  const canArchive = visibleSecs().length > 1;
+  const list = arch.length ? `<ul class="arch-list">${arch.map(k => `
+      <li><span class="mono">${esc(t("sec." + k))}</span>
+        <button class="btn btn-ghost btn-sm" data-restore="${k}">↩️ ${esc(t("arch.restore"))}</button></li>`).join("")}</ul>` : "";
+  return `<section class="panel archive-panel">
+    <div><h3 class="mono">🗄️ ${esc(t("arch.title"))}</h3>
+      <p class="muted">${esc(canArchive ? t("arch.desc", { c: t("sec." + sec) }) : t("arch.last"))}</p>
+      ${arch.length ? `<p class="muted small">${esc(t("arch.listTitle"))}</p>${list}` : ""}</div>
+    <div class="row"><button class="btn btn-ghost btn-sm" id="btn-archive" ${canArchive ? "" : "disabled"}>🗄️ ${esc(t("arch.btn", { c: t("sec." + sec) }))}</button></div>
+  </section>`;
+}
+function bindArchive() {
+  const b = document.getElementById("btn-archive");
+  if (b) b.onclick = () => {
+    const sec = state.section;
+    if (!confirm(t("arch.confirm", { c: t("sec." + sec) }))) return;
+    setArchived(sec, true);
+    toast(t("arch.done", { c: t("sec." + sec) }), "info");
+    renderHome();
+  };
+  app.querySelectorAll("[data-restore]").forEach(r => r.onclick = () => {
+    const k = r.dataset.restore;
+    setArchived(k, false);
+    toast(t("arch.restored", { c: t("sec." + k) }), "ok");
+    setSection(k);
+  });
+}
+
 async function refreshProgress() {
   const [attempts, answers] = await Promise.all([state.store.attempts(), state.store.answers()]);
   state.attempts = attempts;
@@ -715,7 +756,7 @@ function savedPanel() {
 function renderHome() {
   stopTimer();
   state.view = "home";
-  if (!hasSec(state.section)) state.section = "guide";
+  if (!hasSec(state.section) || isArchived(state.section)) state.section = visibleSecs()[0] || "guide";
   const sec = state.section;
   const inSec = q => secOf(q.chapter_id) === sec;
   const SQ = secQuestions(), SC = secChapters();
@@ -767,7 +808,7 @@ function renderHome() {
       <p class="muted small">${esc(t(sec === "aws" ? "home.testsDescAws" : "home.testsDesc"))}</p>
       <div class="chapter-grid">${tests.map(card).join("")}</div>
     </section>` : "";
-  const secs = SECTIONS.filter(hasSec);
+  const secs = visibleSecs();
   const tabs = secs.length > 1 ? `
     <div class="seg sec-tabs" role="group" aria-label="${esc(t("sec.label"))}">
       ${secs.map(k => `<button class="seg-btn" data-section="${k}" aria-pressed="${k === sec}">${esc(t("sec." + k))}
@@ -794,6 +835,7 @@ function renderHome() {
   </section>
 
   <div id="offline-slot"></div>
+  ${archivePanel(sec)}
   <div id="saved-slot">${savedPanel()}</div>
   <section class="panel actions-panel">
     <div class="action">
@@ -848,6 +890,7 @@ function renderHome() {
     const qs = shuffle(state.questions.filter(q => ids.includes(q.chapter_id))).slice(0, 30);
     startQuiz({ mode: "domain", chapter_id: null, lab: { k: "domain", d }, questions: qs, feedback: true });
   });
+  bindArchive();
   bindSaved();
   refreshSavedSlot();
   document.getElementById("btn-exam").onclick = () => {
