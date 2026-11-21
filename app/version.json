@@ -1,9 +1,9 @@
 {
-  "versionCode": 27,
-  "versionName": "3.6",
+  "versionCode": 28,
+  "versionName": "3.7",
   "apk": "https://github.com/HamzaBENAZOUZ/splunk-qcm/raw/main/app/mes-certifications.apk",
   "notes": {
-    "fr": "Nouveau logo (médaille) et nouveau nom du fichier : mes-certifications.apk. L'appli est prête si l'adresse du site change.",
-    "en": "New logo (medal) and new file name: mes-certifications.apk. The app is ready if the site address changes."
+    "fr": "Le titre de l'accueil devient « Mes Certifications » sur tous les onglets (plus de « Splunk Training Terminal »).",
+    "en": "The home title is now \"Mes Certifications\" on every tab (no more \"Splunk Training Terminal\")."
   }
 }

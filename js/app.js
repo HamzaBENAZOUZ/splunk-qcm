@@ -777,8 +777,8 @@ function renderHome() {
   const sizes = [20, 40, 60, 65, 100];
   const defSize = sec === "guide" ? 60 : 65;   // SPLK-1001 : 60 questions ; SPLK-1002 et AWS SAA-C03 : 65 questions
   const SEC_PER_Q = secPerQ(sec);
-  const heroT = sec === "aws" ? "AWS SOLUTIONS ARCHITECT" : "SPLUNK TRAINING TERMINAL";
-  const kicker = sec === "aws" ? `&gt; aws ec2 describe-exam --exam SAA-C03 --lang ${getLang()}` : `&gt; splunk@search:~$ | search mode=qcm lang=${getLang()}`;
+  const heroT = "MES CERTIFICATIONS";
+  const kicker = `&gt; mes-certifications:~$ start --exam ${esc(t("sec." + sec)).replace(/ /g, "-")} --lang ${getLang()}`;
   app.innerHTML = `
   <section class="hero">
     <p class="mono kicker">${kicker}</p>
