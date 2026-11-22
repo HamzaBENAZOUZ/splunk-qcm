@@ -1,9 +1,9 @@
 {
-  "versionCode": 41,
-  "versionName": "3.20",
+  "versionCode": 42,
+  "versionName": "3.21",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Books façon liseuse : le dernier livre ouvert est en haut (« Reprendre la lecture »), reprise à l'endroit exact, progression en % et temps restant, sommaire, signets et surlignages, thèmes Clair / Sépia / Nuit, police, interligne, marges, mode Pages, tri, filtres et archivage des livres.",
-    "en": "Books, e-reader style: the last book you opened is at the top (\"Continue reading\"), exact position resume, % progress and time left, contents, bookmarks and highlights, Light / Sepia / Night themes, font, line spacing, margins, Pages mode, sorting, filters and archiving."
+    "fr": "Livres : la taille du texte du livre se règle seule, sans agrandir l'appli (jusqu'à 250 %), avec A− / A+, le curseur dans ⚙ et Aa, Paramètres > Affichage, ou en pinçant l'écran avec deux doigts.",
+    "en": "Books: the book's text size is now set on its own, without enlarging the app (up to 250%), with A− / A+, the slider in ⚙ and Aa, Settings > Display, or by pinching the screen with two fingers."
   }
 }
