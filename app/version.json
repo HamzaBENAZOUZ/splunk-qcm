@@ -1,9 +1,9 @@
 {
-  "versionCode": 39,
-  "versionName": "3.18",
+  "versionCode": 40,
+  "versionName": "3.19",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Écoute des livres : le texte des tableaux est maintenant lu à voix haute (téléphone, télé et voiture), sans lire les icônes décoratives comme « Une icône d'un globe ». Pour un livre EPUB déjà importé, « Redécouper le fichier » retire aussi ce texte d'icône de l'affichage.",
-    "en": "Book listening: table text is now read aloud (phone, TV and car), without reading decorative icons such as \"An icon of a globe\". For an EPUB already imported, \"Split the file again\" also removes that icon text from the page."
+    "fr": "Import EPUB : les fichiers EPUB que l'appli refusait (« Corrupted zip… ») s'ouvrent maintenant, comme dans les autres liseuses. Si un fichier est vraiment incomplet, un message clair l'indique.",
+    "en": "EPUB import: EPUB files the app used to reject (\"Corrupted zip…\") now open, as in other reading apps. If a file really is incomplete, a clear message says so."
   }
 }
