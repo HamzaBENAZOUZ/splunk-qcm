@@ -1,9 +1,9 @@
 {
-  "versionCode": 42,
-  "versionName": "3.21",
+  "versionCode": 43,
+  "versionName": "3.22",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Livres : la taille du texte du livre se règle seule, sans agrandir l'appli (jusqu'à 250 %), avec A− / A+, le curseur dans ⚙ et Aa, Paramètres > Affichage, ou en pinçant l'écran avec deux doigts.",
-    "en": "Books: the book's text size is now set on its own, without enlarging the app (up to 250%), with A− / A+, the slider in ⚙ and Aa, Settings > Display, or by pinching the screen with two fingers."
+    "fr": "Écoute des livres : la phrase lue reste entièrement visible, entre le lecteur en haut et la barre de progression en bas, même en grande taille de texte.",
+    "en": "Book listening: the sentence being read stays fully visible, between the player at the top and the progress bar at the bottom, even with large text."
   }
 }
