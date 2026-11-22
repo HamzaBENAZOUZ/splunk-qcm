@@ -1,9 +1,9 @@
 {
-  "versionCode": 37,
-  "versionName": "3.16",
+  "versionCode": 38,
+  "versionName": "3.17",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Traduction des livres réparée sur tablette et télé : le traducteur hors ligne utilise moins de mémoire, se relance tout seul s'il plante, et passe à la traduction en ligne si besoin au lieu d'afficher « Aborted() ».",
-    "en": "Book translation fixed on tablets and TVs: the offline translator uses less memory, restarts by itself if it crashes, and switches to online translation when needed instead of showing \"Aborted()\"."
+    "fr": "Nouvelle option dans Paramètres > Affichage : « Taille du texte » (Petite à Énorme) pour agrandir l'écriture dans toute l'application, sur téléphone, tablette et télé.",
+    "en": "New option in Settings > Display: \"Text size\" (Small to Huge) to make the text bigger across the whole app, on phones, tablets and TVs."
   }
 }
