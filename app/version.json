@@ -1,9 +1,9 @@
 {
-  "versionCode": 36,
-  "versionName": "3.15",
+  "versionCode": 37,
+  "versionName": "3.16",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Livres EPUB : les images et les tableaux du livre s'affichent maintenant dans le lecteur (toucher une image pour l'agrandir) et sur la télé. Pour un livre déjà importé, ouvrez-le puis « Redécouper le fichier » (ou réimportez l'EPUB).",
-    "en": "EPUB books: the book's images and tables now show in the reader (tap an image to zoom) and on the TV. For a book you already imported, open it and use \"Split the file again\" (or import the EPUB again)."
+    "fr": "Traduction des livres réparée sur tablette et télé : le traducteur hors ligne utilise moins de mémoire, se relance tout seul s'il plante, et passe à la traduction en ligne si besoin au lieu d'afficher « Aborted() ».",
+    "en": "Book translation fixed on tablets and TVs: the offline translator uses less memory, restarts by itself if it crashes, and switches to online translation when needed instead of showing \"Aborted()\"."
   }
 }
