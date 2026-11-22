@@ -1,9 +1,9 @@
 {
-  "versionCode": 40,
-  "versionName": "3.19",
+  "versionCode": 41,
+  "versionName": "3.20",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Import EPUB : les fichiers EPUB que l'appli refusait (« Corrupted zip… ») s'ouvrent maintenant, comme dans les autres liseuses. Si un fichier est vraiment incomplet, un message clair l'indique.",
-    "en": "EPUB import: EPUB files the app used to reject (\"Corrupted zip…\") now open, as in other reading apps. If a file really is incomplete, a clear message says so."
+    "fr": "Books façon liseuse : le dernier livre ouvert est en haut (« Reprendre la lecture »), reprise à l'endroit exact, progression en % et temps restant, sommaire, signets et surlignages, thèmes Clair / Sépia / Nuit, police, interligne, marges, mode Pages, tri, filtres et archivage des livres.",
+    "en": "Books, e-reader style: the last book you opened is at the top (\"Continue reading\"), exact position resume, % progress and time left, contents, bookmarks and highlights, Light / Sepia / Night themes, font, line spacing, margins, Pages mode, sorting, filters and archiving."
   }
 }
