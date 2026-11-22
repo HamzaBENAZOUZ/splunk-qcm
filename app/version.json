@@ -1,9 +1,9 @@
 {
-  "versionCode": 35,
-  "versionName": "3.14",
+  "versionCode": 36,
+  "versionName": "3.15",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Nouvelle page Examens : pour chaque certification, durée, coût, nombre de questions, score, lieu de passage (centre Pearson VUE ou en ligne), langues, validité, rattrapage et inscription. Accès depuis l'encadré « L'examen officiel » de l'accueil.",
-    "en": "New Exams page: for each certification, duration, cost, number of questions, score, where to take it (Pearson VUE center or online), languages, validity, retakes and registration. Open it from the \"The official exam\" box on the home page."
+    "fr": "Livres EPUB : les images et les tableaux du livre s'affichent maintenant dans le lecteur (toucher une image pour l'agrandir) et sur la télé. Pour un livre déjà importé, ouvrez-le puis « Redécouper le fichier » (ou réimportez l'EPUB).",
+    "en": "EPUB books: the book's images and tables now show in the reader (tap an image to zoom) and on the TV. For a book you already imported, open it and use \"Split the file again\" (or import the EPUB again)."
   }
 }
