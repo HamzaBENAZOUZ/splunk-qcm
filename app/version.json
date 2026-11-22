@@ -1,9 +1,9 @@
 {
-  "versionCode": 37,
-  "versionName": "3.16",
+  "versionCode": 39,
+  "versionName": "3.18",
   "apk": "https://github.com/HamzaBENAZOUZ/MyCertif/raw/main/app/MyCertif.apk",
   "notes": {
-    "fr": "Traduction des livres réparée sur tablette et télé : le traducteur hors ligne utilise moins de mémoire, se relance tout seul s'il plante, et passe à la traduction en ligne si besoin au lieu d'afficher « Aborted() ».",
-    "en": "Book translation fixed on tablets and TVs: the offline translator uses less memory, restarts by itself if it crashes, and switches to online translation when needed instead of showing \"Aborted()\"."
+    "fr": "Écoute des livres : le texte des tableaux est maintenant lu à voix haute (téléphone, télé et voiture), sans lire les icônes décoratives comme « Une icône d'un globe ». Pour un livre EPUB déjà importé, « Redécouper le fichier » retire aussi ce texte d'icône de l'affichage.",
+    "en": "Book listening: table text is now read aloud (phone, TV and car), without reading decorative icons such as \"An icon of a globe\". For an EPUB already imported, \"Split the file again\" also removes that icon text from the page."
   }
 }
